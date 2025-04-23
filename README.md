@@ -1,0 +1,1 @@
+This is the documentation for my Afrinet wifi hotspotting project. More to be updated later!
