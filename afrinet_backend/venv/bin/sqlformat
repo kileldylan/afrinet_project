@@ -1,4 +1,4 @@
-#!/home/deelan/afrinet_wifi/venv/bin/python3
+#!/home/deelan/afrinet_project/afrinet_backend/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
