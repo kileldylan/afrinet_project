@@ -75,6 +75,6 @@ button:focus-visible {
 html, body, #root {
   height: 100%;
   width: 100%;
-  background-color: #fff; /* To replace the black space */
+  background-color: #fed6e3; /* To replace the black space */
   overflow-x: hidden;
 }

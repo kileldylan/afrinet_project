@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from 'axios';
 import {
   Button,
   Card,
@@ -11,10 +12,12 @@ import {
   Chip,
   Divider,
   Paper,
-  useMediaQuery,
   useTheme,
   Avatar,
-  Stack
+  Stack,
+  CircularProgress,
+  Snackbar,
+  Alert
 } from "@mui/material";
 import {
   LocalAtm,
@@ -27,33 +30,97 @@ import {
 } from "@mui/icons-material";
 
 const offers = [
-  { price: 10, duration: "1 Hour", popular: false, speed: "10 Mbps" },
-  { price: 20, duration: "6 Hours", popular: false, speed: "15 Mbps" },
-  { price: 30, duration: "24 Hours", popular: true, speed: "20 Mbps" },
-  { price: 50, duration: "2 Days", popular: false, speed: "30 Mbps" },
+  { id: 1, price: 10, duration: "1 Hour", popular: false, speed: "10 Mbps" },
+  { id: 2, price: 20, duration: "6 Hours", popular: false, speed: "15 Mbps" },
+  { id: 3, price: 30, duration: "24 Hours", popular: true, speed: "20 Mbps" },
+  { id: 4, price: 50, duration: "2 Days", popular: false, speed: "30 Mbps" },
 ];
 
 const Dashboard = () => {
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
   const theme = useTheme();
 
   const handleSelect = (offer) => {
     setSelectedOffer(offer);
   };
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (!phoneNumber) {
-      alert("Please enter your phone number");
+      setSnackbar({
+        open: true,
+        message: 'Please enter your phone number',
+        severity: 'error'
+      });
       return;
     }
-    console.log("Initiate payment for:", selectedOffer, "to", phoneNumber);
+
+    if (!selectedOffer) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a package',
+        severity: 'error'
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Format phone number (remove leading 0 if present and add country code)
+      const formattedPhone = phoneNumber.startsWith('0') 
+        ? `254${phoneNumber.substring(1)}` 
+        : phoneNumber;
+
+        const response = await axios.post('http://127.0.0.1:8000/mpesa/stk-push/', {
+          phone_number: formattedPhone,
+          selectedOffer: {
+            price: selectedOffer.price,
+            duration: selectedOffer.duration,
+            speed: selectedOffer.speed,
+            popular: selectedOffer.popular,
+          }
+        });
+
+      if (response.data.success) {
+        setSnackbar({
+          open: true,
+          message: 'Payment request sent to your phone! Please check your M-Pesa',
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.data.message || 'Payment initiation failed',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Error initiating payment. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
 
   return (
     <Container maxWidth="lg" sx={{ 
       py: { xs: 3, sm: 4, md: 6 },
-      background: 'linear-gradient(to bottom, #f9faff, #ffffff)',
+      background: 'linear-gradient(to bottom, #a8edea, #fed6e3)',
       minHeight: '100vh'
     }}>
       {/* Hero Section */}
@@ -103,8 +170,8 @@ const Dashboard = () => {
         justifyContent="center"
         sx={{ mb: { xs: 4, sm: 6 } }}
       >
-        {offers.map((offer, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+        {offers.map((offer) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={offer.id}>
             <Card
               onClick={() => handleSelect(offer)}
               sx={{
@@ -113,10 +180,10 @@ const Dashboard = () => {
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                border: selectedOffer?.price === offer.price ? 
+                border: selectedOffer?.id === offer.id ? 
                   `2px solid ${theme.palette.primary.main}` : 
                   '1px solid rgba(0, 0, 0, 0.12)',
-                boxShadow: selectedOffer?.price === offer.price ? 
+                boxShadow: selectedOffer?.id === offer.id ? 
                   `0 8px 16px ${theme.palette.primary.light}` : 
                   '0 4px 12px rgba(0, 0, 0, 0.08)',
                 '&:hover': {
@@ -182,7 +249,7 @@ const Dashboard = () => {
 
                 <Button
                   fullWidth
-                  variant={selectedOffer?.price === offer.price ? "contained" : "outlined"}
+                  variant={selectedOffer?.id === offer.id ? "contained" : "outlined"}
                   color="primary"
                   size="medium"
                   sx={{ 
@@ -192,7 +259,7 @@ const Dashboard = () => {
                     textTransform: 'none'
                   }}
                 >
-                  {selectedOffer?.price === offer.price ? 
+                  {selectedOffer?.id === offer.id ? 
                     "✓ Selected" : "Choose Plan"}
                 </Button>
               </CardContent>
@@ -275,8 +342,9 @@ const Dashboard = () => {
               variant="contained"
               color="primary"
               size="large"
-              startIcon={<LocalAtm />}
+              startIcon={loading ? <CircularProgress size={24} color="inherit" /> : <LocalAtm />}
               onClick={handlePayment}
+              disabled={loading}
               sx={{ 
                 py: 2,
                 borderRadius: 2,
@@ -289,7 +357,7 @@ const Dashboard = () => {
                 }
               }}
             >
-              Pay Now with M-Pesa
+              {loading ? 'Processing...' : 'Pay Now with M-Pesa'}
             </Button>
 
             <Typography 
@@ -339,6 +407,22 @@ const Dashboard = () => {
           © {new Date().getFullYear()} AfriNet Communications
         </Typography>
       </Box>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
