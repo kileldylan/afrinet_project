@@ -1,12 +1,18 @@
-from django.urls import path, include
-from .views import UserViewSet, PaymentViewSet, active_sessions
-from rest_framework.routers import DefaultRouter
-
-router = DefaultRouter()
-router.register(r'users', UserViewSet)
-router.register(r'payments', PaymentViewSet)
+from django.urls import path
+from .views import (
+    PackageListView,
+    InitiatePaymentView,
+    UserSessionView,
+    MpesaAuthTestView,
+    MpesaSTKTestView,
+    verify_config
+)
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('sessions/', active_sessions, name='active_sessions'),
+    path('packages/', PackageListView.as_view(), name='package-list'),
+    path('initiate-payment/', InitiatePaymentView.as_view(), name='initiate-payment'),
+    path('sessions/<str:phone_number>/', UserSessionView.as_view(), name='user-session'),
+    path('mpesa/stk-test/', MpesaSTKTestView.as_view(), name='test_stk_push'),
+    path('mpesa/auth-test/', MpesaAuthTestView.as_view(), name='mpesa-auth-test'),
+    path('verify-config/', verify_config, name='verify_config'),
 ]

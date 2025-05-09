@@ -1,102 +1,132 @@
-import base64
-import requests
 import json
-from datetime import datetime
 from django.http import JsonResponse
-from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.timezone import now
-from afrinet.models import Package, User, Payment  # import your models from afrinet
-from .utils import lipa_na_mpesa_online
-
+from afrinet.models import Payment
+from .services import MpesaService
+import json
+from django.utils import timezone
+from afrinet.models import Payment, User, Session
 
 @csrf_exempt
 def stk_push(request):
     if request.method == "POST":
-        data = json.loads(request.body)
-        phone_number = data.get("phone_number")
-        selected_offer = data.get("selectedOffer", {})
-
-        # Extract fields
-        price = selected_offer.get("price")
-        duration = selected_offer.get("duration")
-        speed = selected_offer.get("speed")
-        popular = selected_offer.get("popular", False)
-
-        # Validate required fields
-        if not phone_number or not price or not duration or not speed:
-            return JsonResponse({"error": "Missing required fields"}, status=400)
-
-        # Try to find a matching Package
         try:
-            package = Package.objects.get(
-                price=price,
-                duration=duration,
-                speed=speed,
-                popular=popular
+            data = json.loads(request.body)
+            phone_number = data.get("phone_number")
+            amount = data.get("amount")
+
+            print("📩 Incoming STK push request:", data)
+
+            if not phone_number or not amount:
+                return JsonResponse(
+                    {"success": False, "message": "Missing required fields"},
+                    status=400
+                )
+
+            response = MpesaService.initiate_stk_push(
+                phone_number,
+                amount,
+                data.get('account_reference', 'WIFI_PAYMENT'),
+                data.get('transaction_desc', 'Wifi Package Payment')
             )
-        except Package.DoesNotExist:
-            return JsonResponse({"error": "Selected package does not exist"}, status=404)
 
-        # Get or create the user
-        user, created = User.objects.get_or_create(phone_number=phone_number)
-        user.package = package
-        user.save()
+            print("📤 STK Push Response:", response)
 
-        # Initiate STK Push
-        response = lipa_na_mpesa_online(phone_number, price)
+            if response["success"]:
+                user = User.objects.filter(phone_number=phone_number).first()
+                if not user:
+                    print("❌ User not found")
+                    return JsonResponse({'success': False, 'message': 'User not found'}, status=404)
 
-        # Return response + package info
-        response.update({
-            "package": {
-                "price": price,
-                "duration": duration,
-                "speed": speed,
-                "popular": popular
-            },
-            "phone_number": phone_number,
-            "success": True,
-            "message": "STK push sent successfully"
-        })
+                Payment.objects.create(
+                    user=user,
+                    amount=amount,
+                    phone_number=phone_number,
+                    package=user.package,  # Ensure this exists
+                    transaction_id=response.get('checkout_request_id'),
+                    status='pending'
+                )
 
-        return JsonResponse(response)
+            return JsonResponse(response)
 
-    return JsonResponse({"error": "Invalid method"}, status=405)
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"success": False, "message": "Invalid JSON"},
+                status=400
+            )
+        except Exception as e:
+            print("❌ Internal Server Error:", str(e))
+            return JsonResponse(
+                {"success": False, "message": "Internal server error"},
+                status=500
+            )
 
+    return JsonResponse(
+        {"success": False, "message": "Method not allowed"},
+        status=405
+    )
 
 @csrf_exempt
 def callback(request):
-    data = json.loads(request.body)
-    print("Callback data: ", json.dumps(data, indent=2))
+    """
+    Handles M-Pesa STK Push callback
+    Expected flow:
+    1. Frontend initiates payment -> M-Pesa sends request to your server
+    2. M-Pesa sends callback to this endpoint with payment status
+    3. You update your database accordingly
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Only POST allowed'}, status=405)
 
-    body = data.get("Body", {}).get("stkCallback", {})
-    metadata = body.get("CallbackMetadata", {}).get("Item", [])
-    result_code = body.get("ResultCode")
-    transaction_id = body.get("CheckoutRequestID")
+    try:
+        callback_data = json.loads(request.body)
+        result = callback_data.get('Body', {}).get('stkCallback', {})
+        
+        # Extract critical information
+        result_code = result.get('ResultCode')
+        checkout_request_id = result.get('CheckoutRequestID')
+        metadata = result.get('CallbackMetadata', {}).get('Item', [])
+        
+        # Parse metadata
+        payment_data = {item.get('Name'): item.get('Value') for item in metadata}
+        amount = payment_data.get('Amount')
+        mpesa_receipt = payment_data.get('MpesaReceiptNumber')
+        phone_number = payment_data.get('PhoneNumber', '')[3:]  # Remove 254 prefix
+        
+        # Find the pending payment
+        payment = Payment.objects.filter(
+            transaction_id=checkout_request_id,
+            status='pending'
+        ).first()
 
-    amount = None
-    phone_number = None
+        if not payment:
+            return JsonResponse({'status': 'error', 'message': 'Payment not found'}, status=404)
 
-    for item in metadata:
-        if item.get("Name") == "Amount":
-            amount = item.get("Value")
-        if item.get("Name") == "PhoneNumber":
-            phone_number = str(item.get("Value"))[-9:]  # Get last 9 digits
-
-    if result_code == 0 and phone_number:
-        phone_number = f"07{phone_number[-8:]}"  # Normalize to Safaricom format if needed
-        user = User.objects.filter(phone_number=phone_number).first()
-
-        if user:
-            Payment.objects.create(
-                user=user,
-                package=user.package,
-                amount=amount,
-                transaction_id=transaction_id,
-                status="Success",
-                created_at=now()
+        # Update payment based on result
+        if result_code == 0:  # Success
+            payment.status = 'completed'
+            payment.mpesa_receipt = mpesa_receipt
+            payment.completed_at = timezone.now()
+            
+            # Create user session (if applicable)
+            Session.objects.create(
+                user=payment.user,
+                user_phone=payment.user.phone_number,
+                package=payment.package,
+                duration_minutes=payment.package.duration_minutes,
+                status='active'
             )
-        else:
-            print("User not found for phone number", phone_number)
+            
+            message = "Payment completed successfully"
+        else:  # Failure
+            payment.status = 'failed'
+            message = result.get('ResultDesc', 'Payment failed')
 
-    return JsonResponse({"message": "Callback received and processed"})
+        payment.save()
+        return JsonResponse({'status': 'success', 'message': message})
+
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

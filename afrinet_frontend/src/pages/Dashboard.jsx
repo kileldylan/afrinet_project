@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from 'axios';
 import {
   Button,
@@ -9,7 +9,6 @@ import {
   Grid,
   Container,
   Box,
-  Chip,
   Divider,
   Paper,
   useTheme,
@@ -29,17 +28,12 @@ import {
   Payment
 } from "@mui/icons-material";
 
-const offers = [
-  { id: 1, price: 10, duration: "1 Hour", popular: false, speed: "10 Mbps" },
-  { id: 2, price: 20, duration: "6 Hours", popular: false, speed: "15 Mbps" },
-  { id: 3, price: 30, duration: "24 Hours", popular: true, speed: "20 Mbps" },
-  { id: 4, price: 50, duration: "2 Days", popular: false, speed: "30 Mbps" },
-];
-
 const Dashboard = () => {
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
+  const [packages, setPackages] = useState([]);
+  const [fetchingPackages, setFetchingPackages] = useState(true);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -47,12 +41,33 @@ const Dashboard = () => {
   });
   const theme = useTheme();
 
+  // Fetch packages from Django backend
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const response = await axios.get('http://127.0.0.1:8000/api/packages/');
+        setPackages(response.data);
+      } catch (error) {
+        console.error("Error fetching packages:", error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to load packages. Please try again later.',
+          severity: 'error'
+        });
+      } finally {
+        setFetchingPackages(false);
+      }
+    };
+
+    fetchPackages();
+  }, []);
+
   const handleSelect = (offer) => {
     setSelectedOffer(offer);
   };
 
   const handlePayment = async () => {
-    if (!phoneNumber) {
+    if (!phoneNumber || !selectedOffer) {
       setSnackbar({
         open: true,
         message: 'Please enter your phone number',
@@ -73,25 +88,28 @@ const Dashboard = () => {
     try {
       setLoading(true);
       
-      // Format phone number (remove leading 0 if present and add country code)
-      const formattedPhone = phoneNumber.startsWith('0') 
-        ? `254${phoneNumber.substring(1)}` 
-        : phoneNumber;
-
-        const response = await axios.post('http://127.0.0.1:8000/mpesa/stk-push/', {
-          phone_number: formattedPhone,
-          selectedOffer: {
-            price: selectedOffer.price,
-            duration: selectedOffer.duration,
-            speed: selectedOffer.speed,
-            popular: selectedOffer.popular,
-          }
-        });
-
+      // Format phone number exactly as backend expects (raw input)
+      const rawPhone = phoneNumber.startsWith('254') 
+        ? phoneNumber 
+        : phoneNumber.startsWith('0') 
+          ? `254${phoneNumber.substring(1)}` 
+          : `254${phoneNumber}`;
+  
+      const response = await axios.post('http://127.0.0.1:8000/mpesa/stk-push/', {
+        phone_number: rawPhone,  // Send as 254...
+        amount: selectedOffer.price.toString(),  // Must be string
+        account_reference: `WIFI_${selectedOffer.id}`,  // Match backend format
+        transaction_desc: `Wifi ${selectedOffer.duration} Package`  // Match backend
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+  
       if (response.data.success) {
         setSnackbar({
           open: true,
-          message: 'Payment request sent to your phone! Please check your M-Pesa',
+          message: response.data.message || 'Payment initiated! Check your phone',
           severity: 'success'
         });
       } else {
@@ -103,9 +121,12 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error("Payment error:", error);
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Payment failed. Please try again.';
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Error initiating payment. Please try again.',
+        message: errorMessage,
         severity: 'error'
       });
     } finally {
@@ -116,6 +137,20 @@ const Dashboard = () => {
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
+
+  if (fetchingPackages) {
+    return (
+      <Container maxWidth="lg" sx={{ 
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(to bottom, #a8edea, #fed6e3)'
+      }}>
+        <CircularProgress size={60} />
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ 
@@ -170,20 +205,20 @@ const Dashboard = () => {
         justifyContent="center"
         sx={{ mb: { xs: 4, sm: 6 } }}
       >
-        {offers.map((offer) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={offer.id}>
+        {packages.map((pkg) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={pkg.id}>
             <Card
-              onClick={() => handleSelect(offer)}
+              onClick={() => handleSelect(pkg)}
               sx={{
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                border: selectedOffer?.id === offer.id ? 
+                border: selectedOffer?.id === pkg.id ? 
                   `2px solid ${theme.palette.primary.main}` : 
                   '1px solid rgba(0, 0, 0, 0.12)',
-                boxShadow: selectedOffer?.id === offer.id ? 
+                boxShadow: selectedOffer?.id === pkg.id ? 
                   `0 8px 16px ${theme.palette.primary.light}` : 
                   '0 4px 12px rgba(0, 0, 0, 0.08)',
                 '&:hover': {
@@ -195,7 +230,7 @@ const Dashboard = () => {
                 borderRadius: 3
               }}
             >
-              {offer.popular && (
+              {pkg.popular && (
                 <Box sx={{
                   position: 'absolute',
                   top: -12,
@@ -216,12 +251,12 @@ const Dashboard = () => {
               <CardContent sx={{ 
                 textAlign: 'center', 
                 flexGrow: 1,
-                pt: offer.popular ? 4 : 3
+                pt: pkg.popular ? 4 : 3
               }}>
                 <Stack direction="row" alignItems="center" justifyContent="center" spacing={1} mb={1}>
                   <Speed color="primary" />
                   <Typography variant="body2" color="primary">
-                    {offer.speed}
+                    {pkg.speed}
                   </Typography>
                 </Stack>
 
@@ -234,7 +269,7 @@ const Dashboard = () => {
                     mb: 1
                   }}
                 >
-                  Ksh {offer.price}
+                  Ksh {pkg.price}
                 </Typography>
 
                 <Typography 
@@ -242,14 +277,14 @@ const Dashboard = () => {
                   color="text.secondary" 
                   sx={{ mb: 2 }}
                 >
-                  {offer.duration}
+                  {pkg.duration}
                 </Typography>
 
                 <Divider sx={{ my: 2 }} />
 
                 <Button
                   fullWidth
-                  variant={selectedOffer?.id === offer.id ? "contained" : "outlined"}
+                  variant={selectedOffer?.id === pkg.id ? "contained" : "outlined"}
                   color="primary"
                   size="medium"
                   sx={{ 
@@ -259,7 +294,7 @@ const Dashboard = () => {
                     textTransform: 'none'
                   }}
                 >
-                  {selectedOffer?.id === offer.id ? 
+                  {selectedOffer?.id === pkg.id ? 
                     "✓ Selected" : "Choose Plan"}
                 </Button>
               </CardContent>
@@ -268,7 +303,7 @@ const Dashboard = () => {
         ))}
       </Grid>
 
-      {/* Payment Section */}
+      {/* Payment Section - THIS IS THE PART THAT WAS MISSING */}
       {selectedOffer && (
         <Box sx={{ 
           display: 'flex', 

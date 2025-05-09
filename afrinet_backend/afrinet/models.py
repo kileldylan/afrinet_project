@@ -28,6 +28,7 @@ class User(models.Model):
 class Payment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True)
+    phone_number = models.CharField(max_length=50, default="")
     amount = models.DecimalField(max_digits=6, decimal_places=2)
     transaction_id = models.CharField(max_length=50, unique=True)
     status = models.CharField(max_length=50)
