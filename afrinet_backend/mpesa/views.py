@@ -10,7 +10,12 @@ from django.utils import timezone
 from afrinet.models import Payment, User, Session, Voucher, Package
 import uuid
 from rest_framework.response import Response
+import requests
+from dotenv import load_dotenv
+import os
+from .services import MpesaService
 
+load_dotenv()
 @csrf_exempt
 def stk_push(request):
     if request.method == "POST":
@@ -265,3 +270,23 @@ def verify_voucher(request):
             "success": False,
             "message": f"Error verifying voucher: {str(e)}"
         }, status=500)
+
+def register_url(request):
+    access_token = MpesaService.get_access_token()  # Your logic to fetch OAuth token
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "ShortCode": os.getenv("MPESA_SHORTCODE"),
+        "ResponseType": "Completed",
+        "ConfirmationURL": os.getenv("BASE_URL") + "/mpesa/callback/",
+        "ValidationURL": os.getenv("BASE_URL") + "/mpesa/callback/",
+    }
+
+    url = "https://sandbox.safaricom.co.ke/mpesa/c2b/v1/registerurl"
+
+    response = requests.post(url, json=payload, headers=headers)
+    return JsonResponse(response.json())
