@@ -145,12 +145,12 @@ class UserSessionView(APIView):
             session = Session.objects.filter(
                 user_phone=phone_number,
                 status='active'
-            ).latest('start_time')
+            ).latest('created_at')
             return Response({
                 'active': True,
                 'package': session.package.package_id,
-                'start_time': session.start_time,
-                'end_time': session.end_time,
+                'created_at': session.created_at,
+                'expires_at': session.expires_at,
                 'time_remaining': session.time_remaining,
                 'data_used': session.data_used
             })

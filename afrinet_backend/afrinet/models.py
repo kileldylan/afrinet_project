@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.utils import timezone
 
@@ -35,16 +36,21 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 class Session(models.Model):
+    session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     user_phone = models.CharField(max_length=50, null=True, blank=True)
+    voucher = models.CharField(max_length=100, null=True, blank=True)
     device_mac = models.CharField(max_length=50, null=True, blank=True)
     ip_address = models.GenericIPAddressField(default="127.0.0.1")
-    start_time = models.DateTimeField(default=timezone.now)
-    end_time = models.DateTimeField(null=True, blank=True)  # Remove default, will be calculated
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(null=True, blank=True)  # Remove default, will be calculated
     duration_minutes = models.PositiveIntegerField()
     disconnected = models.BooleanField(default=False)
     data_used = models.BigIntegerField(default=0)  # in bytes
     package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    disconnected_at = models.DateTimeField(null=True, blank=True)
+
     status = models.CharField(
         max_length=20,
         choices=[('active', 'Active'), ('disconnected', 'Disconnected'), ('expired', 'Expired')],
@@ -55,7 +61,7 @@ class Session(models.Model):
     def time_remaining(self):
         remaining = (self.end_time - timezone.now()).total_seconds() / 60
         return max(0, round(remaining))
-
+    
     def is_expired(self):
         return timezone.now() > self.end_time
 
@@ -67,3 +73,15 @@ class Session(models.Model):
 
     def __str__(self):
         return f"{self.user_phone or self.device_mac} - {self.status}"
+    
+class Voucher(models.Model):
+    code = models.CharField(max_length=100, unique=True)
+    is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    def is_valid(self):
+        return not self.is_used and (self.expires_at is None or self.expires_at > timezone.now())
+
+    def __str__(self):
+        return self.code

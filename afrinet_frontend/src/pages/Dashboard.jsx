@@ -41,6 +41,9 @@ const Dashboard = () => {
   });
   const theme = useTheme();
 
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
   // Fetch packages from Django backend
   useEffect(() => {
     const fetchPackages = async () => {
@@ -133,6 +136,50 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
+    const handleVerify = async () => {
+      if (!verificationCode) {
+        setSnackbar({
+          open: true,
+          message: 'Please enter the verification code',
+          severity: 'error'
+        });
+        return;
+      }
+
+      try {
+        setVerifying(true);
+
+        const response = await axios.post('http://127.0.0.1:8000/mpesa/verify-voucher/', {
+          voucher: verificationCode,
+          phone_number: phoneNumber,
+          package_id: selectedOffer.id
+        });
+
+        if (response.data.success) {
+          setSnackbar({
+            open: true,
+            message: response.data.message || 'Voucher verified successfully! WiFi session started',
+            severity: 'success'
+          });
+        } else {
+          setSnackbar({
+            open: true,
+            message: response.data.message || 'Verification failed',
+            severity: 'error'
+          });
+        }
+      } catch (error) {
+        console.error("Verification error:", error);
+        setSnackbar({
+          open: true,
+          message: error.response?.data?.message || 'Error verifying voucher',
+          severity: 'error'
+        });
+      } finally {
+        setVerifying(false);
+      }
+    };
 
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
@@ -303,7 +350,7 @@ const Dashboard = () => {
         ))}
       </Grid>
 
-      {/* Payment Section - THIS IS THE PART THAT WAS MISSING */}
+      {/* Payment Section */}
       {selectedOffer && (
         <Box sx={{ 
           display: 'flex', 
@@ -405,6 +452,67 @@ const Dashboard = () => {
               <CheckCircle color="success" sx={{ mr: 1, fontSize: 18 }} />
               Secure payment via M-Pesa STK Push
             </Typography>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Verification Section */}
+      {snackbar.severity === 'success' && selectedOffer && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center',
+          mt: -3,
+          mb: 6
+        }}>
+          <Paper 
+            elevation={2} 
+            sx={{ 
+              p: 3, 
+              width: '100%',
+              maxWidth: 600,
+              borderRadius: 3,
+              border: `1px dashed ${theme.palette.primary.main}`,
+              background: '#f0fdf4'
+            }}
+          >
+            <Typography variant="h6" gutterBottom color="primary" fontWeight="600">
+              Check your phone for a message
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Enter the verification code sent to your phone to activate your voucher.
+            </Typography>
+
+            <TextField
+              fullWidth
+              label="Verification Code"
+              variant="outlined"
+              placeholder="e.g. 123456"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+
+            <Button
+              fullWidth
+              variant="outlined"
+              color="primary"
+              size="large"
+              onClick={handleVerify}
+              disabled={verifying}
+              startIcon={verifying ? <CircularProgress size={22} /> : <CheckCircle />}
+              sx={{
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                textTransform: 'none',
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.light,
+                  color: 'white'
+                }
+              }}
+            >
+              {verifying ? 'Verifying...' : 'Verify Voucher'}
+            </Button>
           </Paper>
         </Box>
       )}
