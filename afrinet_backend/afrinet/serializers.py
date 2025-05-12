@@ -14,7 +14,7 @@ class SessionSerializer(serializers.ModelSerializer):
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Package
-        fields = ['id', 'package_id', 'price', 'duration', 'speed', 'popular']
+        fields = ['id', 'package_id', 'price', 'duration_value', 'duration_unit', 'speed', 'popular']
         
 class PaymentInitiationSerializer(serializers.Serializer):
     phone_number = serializers.CharField(

@@ -5,22 +5,23 @@ from django.utils import timezone
 class Package(models.Model):
     package_id = models.CharField(max_length=10, unique=True)
     price = models.DecimalField(max_digits=6, decimal_places=2)
-    duration = models.CharField(max_length=50)  # e.g., "1 Hour"
-    speed = models.CharField(max_length=20)     # e.g., "10 Mbps"
+    duration_value = models.IntegerField(default=1)  # Store duration as an integer representing the number of units
+    duration_unit = models.CharField(max_length=20, choices=[('min', 'Minutes'), ('hour', 'Hours'), ('day', 'Days')], default='min')
+    speed = models.CharField(max_length=20)  # e.g., "10 Mbps"
     popular = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.duration} at {self.speed} - Ksh {self.price}"
+        return f"{self.duration_value} {self.duration_unit} at {self.speed} - Ksh {self.price}"
     
     @property
     def duration_minutes(self):
-        """Convert duration string to minutes"""
-        if 'Hour' in self.duration:
-            return int(self.duration.split()[0]) * 60
-        elif 'Day' in self.duration:
-            return int(self.duration.split()[0]) * 1440
-        return 60  # default to 1 hour if format unexpected
-    
+        """Convert duration to minutes."""
+        if self.duration_unit == 'hour':
+            return self.duration_value * 60
+        elif self.duration_unit == 'day':
+            return self.duration_value * 1440
+        return self.duration_value  # already in minutes
+
 class User(models.Model):
     package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True)
     phone_number = models.CharField(max_length= 10, unique=True)

@@ -102,7 +102,7 @@ const Dashboard = () => {
         phone_number: rawPhone,  // Send as 254...
         amount: selectedOffer.price.toString(),  // Must be string
         account_reference: `WIFI_${selectedOffer.id}`,  // Match backend format
-        transaction_desc: `Wifi ${selectedOffer.duration} Package`  // Match backend
+        transaction_desc: `Wifi ${selectedOffer.duration_unit} Package`  // Match backend
       }, {
         headers: {
           'Content-Type': 'application/json'
@@ -324,7 +324,7 @@ const Dashboard = () => {
                   color="text.secondary" 
                   sx={{ mb: 2 }}
                 >
-                  {pkg.duration}
+                  {pkg.duration_value} {pkg.duration_unit}
                 </Typography>
 
                 <Divider sx={{ my: 2 }} />
@@ -395,7 +395,7 @@ const Dashboard = () => {
                   Selected Plan
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedOffer.duration} • {selectedOffer.speed}
+                  {selectedOffer.duration_value} • {selectedOffer.speed}
                 </Typography>
               </Box>
               <Typography variant="h5" fontWeight="700" color="primary">
