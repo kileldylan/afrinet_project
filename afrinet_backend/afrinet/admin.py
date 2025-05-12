@@ -8,7 +8,7 @@ admin.site.register(Session)
 
 @admin.register(Voucher)
 class VoucherAdmin(admin.ModelAdmin):
-    list_display = ('code', 'is_used', 'created_at', 'expires_at')
+    list_display = ('code', 'is_used', 'created_at', 'end_time')
     search_fields = ('code',)
 
 @admin.register(Payment)

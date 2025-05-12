@@ -150,9 +150,9 @@ const Dashboard = () => {
       try {
         setVerifying(true);
 
-        const response = await axios.post('http://127.0.0.1:8000/mpesa/verify-voucher/', {
-          voucher: verificationCode,
+        const response = await axios.post('https://pat-fireplace-pirates-supplement.trycloudflare.com/mpesa/verify-voucher/', {
           phone_number: phoneNumber,
+          voucher_code: verificationCode,
           package_id: selectedOffer.id
         });
 

@@ -4,6 +4,7 @@ from datetime import datetime
 from django.conf import settings
 import logging
 from requests.exceptions import RequestException
+import base64
 
 logger = logging.getLogger(__name__)
 

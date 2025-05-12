@@ -99,8 +99,8 @@ class InitiatePaymentView(APIView):
             mpesa_data = {
                 'phone_number': f"254{phone_number.lstrip('0')}",  # Ensure proper format
                 'amount': str(int(package.price)),  # Ensure whole number
-                'account_reference': f"WIFI_{package.id}",
-                'transaction_desc': f"Wifi {package.duration} Package"
+                'account_reference': f"Afrinet_WIFI_{package.id}",
+                'transaction_desc': f"Afrinet_Wifi {package.duration} Package"
             }
             
             from mpesa.services import MpesaService
@@ -150,7 +150,7 @@ class UserSessionView(APIView):
                 'active': True,
                 'package': session.package.package_id,
                 'created_at': session.created_at,
-                'expires_at': session.expires_at,
+                'endItime': session.end_time,
                 'time_remaining': session.time_remaining,
                 'data_used': session.data_used
             })
@@ -162,6 +162,24 @@ class UserSessionView(APIView):
                 'success': False,
                 'message': 'Error checking session'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AllActiveSessionsView(APIView):
+    def get(self, request, *args, **kwargs):
+        sessions = Session.objects.filter(status='active')
+        session_data = []
+        for session in sessions:
+            session_data.append({
+                "id": str(session.session_id),
+                "user_phone": session.user_phone,
+                "device_mac": session.device_mac,
+                "ip_address": session.ip_address,
+                "package_name": session.package.package_id if session.package else "N/A",
+                "start_time": session.created_at,
+                "time_remaining": session.time_remaining,
+                "status": session.status,
+            })
+        return Response(session_data, status=status.HTTP_200_OK)
 
 def home(request):
     return HttpResponse("Welcome to the Afrinet WiFi platform!")

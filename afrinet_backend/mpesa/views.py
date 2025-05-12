@@ -137,7 +137,7 @@ def callback(request):
             voucher = Voucher.objects.create(
                 code=voucher_code,
                 payment=payment,
-                expires_at=timezone.now() + timedelta(days=30)  # 30-day validity
+                end_time=timezone.now() + timedelta(days=30)  # 30-day validity
             )
 
             # Create session
@@ -145,10 +145,10 @@ def callback(request):
                 user=payment.user,
                 user_phone=payment.user.phone_number,
                 package=payment.package,
-                voucher=voucher.code,
+                voucher_code=voucher_code.code,
                 duration_minutes=payment.package.duration_minutes,
                 status='active',
-                expires_at=timezone.now() + timedelta(minutes=payment.package.duration_minutes)
+                end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes)
             )
 
             print(f"📶 Session created with voucher: {voucher_code}")
@@ -169,6 +169,14 @@ def callback(request):
         print("❌ Exception in callback:", str(e))
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+def normalize_phone(phone):
+    phone = phone.strip()
+    if phone.startswith("07"):
+        return "254" + phone[1:]  # Convert 07xx... to 2547xx...
+    elif phone.startswith("+"):
+        return phone[1:]  # Remove +
+    return phone  # Assume already normalized
+
 @csrf_exempt
 def verify_voucher(request):
     if request.method != 'POST':
@@ -181,7 +189,7 @@ def verify_voucher(request):
         # Parse and normalize data
         data = json.loads(request.body)
         phone_number = data.get('phone_number', '').strip()
-        voucher_code = data.get('voucher', '').strip().upper()  # Force uppercase
+        voucher_code = data.get('voucher_code', '').strip().upper()  # Force uppercase
         package_id = data.get('package_id')
 
         print(f"🔍 Verification attempt - Phone: {phone_number}, Voucher: {voucher_code}")
@@ -210,15 +218,15 @@ def verify_voucher(request):
                 "message": "Voucher has already been used"
             }, status=400)
             
-        if voucher.expires_at and voucher.expires_at < timezone.now():
-            print(f"⌛ Voucher expired: {voucher_code} (Expired on {voucher.expires_at})")
+        if voucher.end_time and voucher.end_time < timezone.now():
+            print(f"⌛ Voucher expired: {voucher_code} (Expired on {voucher.end_time})")
             return JsonResponse({
                 "success": False,
                 "message": "Voucher has expired"
             }, status=400)
 
         # Verify voucher belongs to this user
-        if voucher.payment.phone_number != phone_number:
+        if normalize_phone(voucher.payment.phone_number) != normalize_phone(phone_number):
             print(f"📱 Phone mismatch: {voucher.payment.phone_number} vs {phone_number}")
             return JsonResponse({
                 "success": False,
@@ -239,9 +247,9 @@ def verify_voucher(request):
             session_id=str(uuid.uuid4()),
             user_phone=phone_number,
             package=package,
-            voucher=voucher.code,
+            voucher_code=voucher.code,
             duration_minutes=package.duration_minutes,
-            expires_at=timezone.now() + timedelta(minutes=package.duration_minutes),
+            end_time=timezone.now() + timedelta(minutes=package.duration_minutes),
             status='active'
         )
 
@@ -255,7 +263,7 @@ def verify_voucher(request):
             "success": True,
             "message": "Voucher verified successfully! WiFi session started",
             "session_id": str(session.session_id),
-            "expires_at": session.expires_at.isoformat(),
+            "end_time": session.end_time.isoformat(),
             "voucher_code": voucher.code
         })
 
@@ -268,7 +276,7 @@ def verify_voucher(request):
         print(f"🔥 Verification error: {str(e)}")
         return JsonResponse({
             "success": False,
-            "message": f"Error verifying voucher: {str(e)}"
+            "message": f"Error verifying voucher_code: {str(e)}"
         }, status=500)
 
 def register_url(request):
@@ -282,8 +290,8 @@ def register_url(request):
     payload = {
         "ShortCode": os.getenv("MPESA_SHORTCODE"),
         "ResponseType": "Completed",
-        "ConfirmationURL": os.getenv("BASE_URL") + "/mpesa/callback/",
-        "ValidationURL": os.getenv("BASE_URL") + "/mpesa/callback/",
+        "ConfirmationURL": os.getenv("MPESA_CALLBACK_URL") + "/mpesa/callback/",
+        "ValidationURL": os.getenv("MPESA_CALLBACK_URL") + "/mpesa/callback/",
     }
 
     url = "https://sandbox.safaricom.co.ke/mpesa/c2b/v1/registerurl"

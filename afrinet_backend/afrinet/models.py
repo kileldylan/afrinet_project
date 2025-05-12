@@ -39,11 +39,11 @@ class Session(models.Model):
     session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     user_phone = models.CharField(max_length=50, null=True, blank=True)
-    voucher = models.CharField(max_length=100, null=True, blank=True)
+    voucher_code = models.CharField(max_length=100, null=True, blank=True)
     device_mac = models.CharField(max_length=50, null=True, blank=True)
     ip_address = models.GenericIPAddressField(default="127.0.0.1")
     created_at = models.DateTimeField(default=timezone.now)
-    expires_at = models.DateTimeField(null=True, blank=True)  # Remove default, will be calculated
+    end_time = models.DateTimeField(auto_created=True, null=True, blank=True)
     duration_minutes = models.PositiveIntegerField()
     disconnected = models.BooleanField(default=False)
     data_used = models.BigIntegerField(default=0)  # in bytes
@@ -66,9 +66,9 @@ class Session(models.Model):
         return timezone.now() > self.end_time
 
     def save(self, *args, **kwargs):
-        # Calculate end_time based on duration_minutes when saving
+        # Calculate expires_time based on duration_minutes when saving
         if not self.end_time and self.duration_minutes:
-            self.end_time = self.start_time + timezone.timedelta(minutes=self.duration_minutes)
+            self.end_time = self.created_at + timezone.timedelta(minutes=self.duration_minutes)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -78,11 +78,11 @@ class Voucher(models.Model):
     code = models.CharField(max_length=100, unique=True)
     is_used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
     payment = models.ForeignKey(Payment, related_name='vouchers', on_delete=models.CASCADE, default=None)
 
     def is_valid(self):
-        return not self.is_used and (self.expires_at is None or self.expires_at > timezone.now())
+        return not self.is_used and (self.end_time is None or self.end_time > timezone.now())
 
     def __str__(self):
         return self.code
