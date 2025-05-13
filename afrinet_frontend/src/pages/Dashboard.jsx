@@ -16,7 +16,8 @@ import {
   Stack,
   CircularProgress,
   Snackbar,
-  Alert
+  Alert,
+  LinearProgress
 } from "@mui/material";
 import {
   LocalAtm,
@@ -25,7 +26,8 @@ import {
   Wifi,
   Speed,
   Public,
-  Payment
+  Payment,
+  Timer
 } from "@mui/icons-material";
 
 const Dashboard = () => {
@@ -41,8 +43,13 @@ const Dashboard = () => {
   });
   const theme = useTheme();
 
+  // Verification and polling states
   const [verificationCode, setVerificationCode] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null); // null, 'initiating', 'pending', 'completed', 'failed', 'timeout'
+  const [transactionId, setTransactionId] = useState("");
+  const [pollingCount, setPollingCount] = useState(0);
+  const maxPollingAttempts = 10;
 
   // Fetch packages from Django backend
   useEffect(() => {
@@ -65,6 +72,54 @@ const Dashboard = () => {
     fetchPackages();
   }, []);
 
+  // Polling effect for payment confirmation
+  useEffect(() => {
+    let intervalId;
+
+    if (paymentStatus === 'pending' && pollingCount < maxPollingAttempts) {
+      intervalId = setInterval(async () => {
+        try {
+          const response = await axios.post('https://properties-renewable-labeled-automobiles.trycloudflare.com/verify-session/', {
+            phone_number: phoneNumber,
+            transaction_id: transactionId,
+          });
+          
+          if (response.data.success) {
+            clearInterval(intervalId);
+            setPaymentStatus('completed');
+            setSnackbar({
+              open: true,
+              message: 'Payment confirmed! WiFi session started automatically.',
+              severity: 'success'
+            });
+          } else if (response.data.status === 'pending') {
+            setPollingCount(prev => prev + 1);
+          } else {
+            clearInterval(intervalId);
+            setPaymentStatus('failed');
+            setSnackbar({
+              open: true,
+              message: response.data.message || 'Payment verification failed',
+              severity: 'error'
+            });
+          }
+        } catch (error) {
+          console.error("Polling error:", error);
+          setPollingCount(prev => prev + 1);
+        }
+      }, 5000);
+    } else if (pollingCount >= maxPollingAttempts) {
+      setPaymentStatus('timeout');
+      setSnackbar({
+        open: true,
+        message: 'Payment verification timed out. Please verify manually.',
+        severity: 'warning'
+      });
+    }
+
+    return () => clearInterval(intervalId);
+  }, [paymentStatus, pollingCount, phoneNumber, transactionId]);
+
   const handleSelect = (offer) => {
     setSelectedOffer(offer);
   };
@@ -73,16 +128,7 @@ const Dashboard = () => {
     if (!phoneNumber || !selectedOffer) {
       setSnackbar({
         open: true,
-        message: 'Please enter your phone number',
-        severity: 'error'
-      });
-      return;
-    }
-
-    if (!selectedOffer) {
-      setSnackbar({
-        open: true,
-        message: 'Please select a package',
+        message: 'Please enter your phone number and select a package',
         severity: 'error'
       });
       return;
@@ -90,32 +136,36 @@ const Dashboard = () => {
 
     try {
       setLoading(true);
+      setPaymentStatus('initiating');
+      setPollingCount(0);
       
-      // Format phone number exactly as backend expects (raw input)
       const rawPhone = phoneNumber.startsWith('254') 
         ? phoneNumber 
         : phoneNumber.startsWith('0') 
           ? `254${phoneNumber.substring(1)}` 
           : `254${phoneNumber}`;
-  
+
       const response = await axios.post('http://127.0.0.1:8000/mpesa/stk-push/', {
-        phone_number: rawPhone,  // Send as 254...
-        amount: selectedOffer.price.toString(),  // Must be string
-        account_reference: `WIFI_${selectedOffer.id}`,  // Match backend format
-        transaction_desc: `Wifi ${selectedOffer.duration_unit} Package`  // Match backend
+        phone_number: rawPhone,
+        amount: selectedOffer.price.toString(),
+        account_reference: `WIFI_${selectedOffer.id}`,
+        transaction_desc: `Wifi ${selectedOffer.duration_unit} Package`
       }, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-  
+
       if (response.data.success) {
+        setTransactionId(response.data.checkout_request_id);
+        setPaymentStatus('pending');
         setSnackbar({
           open: true,
-          message: response.data.message || 'Payment initiated! Check your phone',
+          message: 'Payment initiated! Check your phone to complete payment.',
           severity: 'success'
         });
       } else {
+        setPaymentStatus('failed');
         setSnackbar({
           open: true,
           message: response.data.message || 'Payment initiation failed',
@@ -123,13 +173,11 @@ const Dashboard = () => {
         });
       }
     } catch (error) {
+      setPaymentStatus('failed');
       console.error("Payment error:", error);
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Payment failed. Please try again.';
       setSnackbar({
         open: true,
-        message: errorMessage,
+        message: error.response?.data?.message || 'Payment failed. Please try again.',
         severity: 'error'
       });
     } finally {
@@ -137,49 +185,49 @@ const Dashboard = () => {
     }
   };
 
-    const handleVerify = async () => {
-      if (!verificationCode) {
+  const handleVerify = async () => {
+    if (!verificationCode) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter the verification code',
+        severity: 'error'
+      });
+      return;
+    }
+
+    try {
+      setVerifying(true);
+
+      const response = await axios.post('http://127.0.0.1:8000/mpesa/verify-session/', {
+        phone_number: phoneNumber,
+        transaction_id: verificationCode,
+      });
+
+      if (response.data.success) {
+        setPaymentStatus('completed');
         setSnackbar({
           open: true,
-          message: 'Please enter the verification code',
-          severity: 'error'
+          message: response.data.message || 'Voucher verified successfully! WiFi session started',
+          severity: 'success'
         });
-        return;
-      }
-
-      try {
-        setVerifying(true);
-
-        const response = await axios.post('https://pat-fireplace-pirates-supplement.trycloudflare.com/mpesa/verify-voucher/', {
-          phone_number: phoneNumber,
-          voucher_code: verificationCode,
-          package_id: selectedOffer.id
-        });
-
-        if (response.data.success) {
-          setSnackbar({
-            open: true,
-            message: response.data.message || 'Voucher verified successfully! WiFi session started',
-            severity: 'success'
-          });
-        } else {
-          setSnackbar({
-            open: true,
-            message: response.data.message || 'Verification failed',
-            severity: 'error'
-          });
-        }
-      } catch (error) {
-        console.error("Verification error:", error);
+      } else {
         setSnackbar({
           open: true,
-          message: error.response?.data?.message || 'Error verifying voucher',
+          message: response.data.message || 'Verification failed',
           severity: 'error'
         });
-      } finally {
-        setVerifying(false);
       }
-    };
+    } catch (error) {
+      console.error("Verification error:", error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Error verifying voucher',
+        severity: 'error'
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
@@ -187,7 +235,7 @@ const Dashboard = () => {
 
   if (fetchingPackages) {
     return (
-      <Container maxWidth="lg" sx={{ 
+      <Container maxWidth="lg" sx={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -200,20 +248,20 @@ const Dashboard = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ 
+    <Container maxWidth="lg" sx={{
       py: { xs: 3, sm: 4, md: 6 },
       background: 'linear-gradient(to bottom, #a8edea, #fed6e3)',
       minHeight: '100vh'
     }}>
       {/* Hero Section */}
-      <Box sx={{ 
-        textAlign: 'center', 
+      <Box sx={{
+        textAlign: 'center',
         mb: { xs: 4, sm: 5, md: 6 },
         px: { xs: 1, sm: 2, md: 0 }
       }}>
-        <Avatar sx={{ 
-          bgcolor: 'primary.main', 
-          width: 80, 
+        <Avatar sx={{
+          bgcolor: 'primary.main',
+          width: 80,
           height: 80,
           mx: 'auto',
           mb: 3
@@ -426,7 +474,7 @@ const Dashboard = () => {
               size="large"
               startIcon={loading ? <CircularProgress size={24} color="inherit" /> : <LocalAtm />}
               onClick={handlePayment}
-              disabled={loading}
+              disabled={loading || paymentStatus === 'pending'}
               sx={{ 
                 py: 2,
                 borderRadius: 2,
@@ -439,8 +487,21 @@ const Dashboard = () => {
                 }
               }}
             >
-              {loading ? 'Processing...' : 'Pay Now with M-Pesa'}
+              {loading ? 'Processing...' : 
+               paymentStatus === 'pending' ? 'Waiting for payment...' : 'Pay Now with M-Pesa'}
             </Button>
+
+            {paymentStatus === 'pending' && (
+              <Box sx={{ mt: 2 }}>
+                <Box display="flex" alignItems="center" mb={1}>
+                  <Timer color="primary" sx={{ mr: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Waiting for payment confirmation ({pollingCount}/{maxPollingAttempts} attempts)
+                  </Typography>
+                </Box>
+                <LinearProgress variant="determinate" value={(pollingCount / maxPollingAttempts) * 100} />
+              </Box>
+            )}
 
             <Typography 
               variant="body2" 
@@ -457,7 +518,7 @@ const Dashboard = () => {
       )}
 
       {/* Verification Section */}
-      {snackbar.severity === 'success' && selectedOffer && (
+      {(paymentStatus === 'pending' || paymentStatus === 'timeout') && (
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'center',
@@ -476,20 +537,23 @@ const Dashboard = () => {
             }}
           >
             <Typography variant="h6" gutterBottom color="primary" fontWeight="600">
-              Check your phone for a message
+              {paymentStatus === 'pending' ? 'Complete Payment on Your Phone' : 'Enter Verification Code'}
             </Typography>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Enter the verification code sent to your phone to activate your voucher.
+              {paymentStatus === 'pending' 
+                ? 'Check your phone for the M-Pesa prompt. After paying, your session will start automatically.'
+                : 'If automatic verification failed, enter the M-Pesa receipt number manually.'}
             </Typography>
 
             <TextField
               fullWidth
-              label="Verification Code"
+              label={paymentStatus === 'pending' ? "Expected Receipt Number" : "Verification Code"}
               variant="outlined"
-              placeholder="e.g. 123456"
+              placeholder={paymentStatus === 'pending' ? "Will appear after payment" : "e.g. ABC123XYZ"}
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}
               sx={{ mb: 2 }}
+              disabled={paymentStatus === 'pending'}
             />
 
             <Button
@@ -498,7 +562,7 @@ const Dashboard = () => {
               color="primary"
               size="large"
               onClick={handleVerify}
-              disabled={verifying}
+              disabled={verifying || paymentStatus === 'pending'}
               startIcon={verifying ? <CircularProgress size={22} /> : <CheckCircle />}
               sx={{
                 py: 1.5,
@@ -511,7 +575,7 @@ const Dashboard = () => {
                 }
               }}
             >
-              {verifying ? 'Verifying...' : 'Verify Voucher'}
+              {verifying ? 'Verifying...' : 'Verify Manually'}
             </Button>
           </Paper>
         </Box>

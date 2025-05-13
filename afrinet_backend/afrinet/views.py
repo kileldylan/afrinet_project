@@ -55,8 +55,8 @@ class MpesaSTKTestView(APIView):
         try:
             from mpesa.services import MpesaService
             test_data = {
-                'phone_number': '254758715788',  # Use your whitelisted number
-                'amount': '1',  # Test with 1 KES
+                'phone_number': '254758715788',
+                'amount': '1',
                 'account_reference': 'TEST',
                 'transaction_desc': 'Test Payment'
             }
@@ -86,7 +86,10 @@ class InitiatePaymentView(APIView):
         package_id = serializer.validated_data['package_id']
         
         try:
-            package = Package.objects.get(pk=package_id)
+            logger.info(f"Received payment request: phone={phone_number}, package_id={package_id}")
+            package = Package.objects.get(package_id=package_id)  # Use custom package_id field
+            logger.info(f"Selected package: id={package.id}, package_id={package.package_id}, price={package.price}")
+            
             user, created = User.objects.get_or_create(
                 phone_number=phone_number,
                 defaults={'package': package}
@@ -97,23 +100,26 @@ class InitiatePaymentView(APIView):
                 user.save()
             
             mpesa_data = {
-                'phone_number': f"254{phone_number.lstrip('0')}",  # Ensure proper format
-                'amount': str(int(package.price)),  # Ensure whole number
-                'account_reference': f"Afrinet_WIFI_{package.id}",
-                'transaction_desc': f"Afrinet_Wifi {package.duration} Package"
+                'phone_number': f"254{phone_number.lstrip('0')}",
+                'amount': str(int(package.price)),
+                'account_reference': f"Afrinet_WIFI{package.package_id}",  # Use package_id for clarity
+                'transaction_desc': f"Afrinet_Wifi {package.duration_value} {package.duration_unit} Package"
             }
             
+            logger.info(f"Sending M-Pesa request: {mpesa_data}")
             from mpesa.services import MpesaService
             stk_response = MpesaService.initiate_stk_push(mpesa_data)
             
             if stk_response.get('success'):
-                Payment.objects.create(
+                payment = Payment.objects.create(
                     user=user,
                     package=package,
                     amount=package.price,
+                    phone_number=phone_number,  # Store raw phone number
                     transaction_id=stk_response.get('checkout_request_id'),
                     status='pending'
                 )
+                logger.info(f"Payment created: id={payment.id}, package_id={package.package_id}, amount={payment.amount}")
                 return Response({
                     'success': True,
                     'message': 'Payment request sent! Check your M-Pesa',
@@ -126,6 +132,7 @@ class InitiatePaymentView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
                 
         except Package.DoesNotExist:
+            logger.error(f"Package not found: package_id={package_id}")
             return Response({
                 'success': False,
                 'message': 'Package not found'
@@ -150,7 +157,7 @@ class UserSessionView(APIView):
                 'active': True,
                 'package': session.package.package_id,
                 'created_at': session.created_at,
-                'endItime': session.end_time,
+                'end_time': session.end_time,  # Fixed typo: 'endItime' to 'end_time'
                 'time_remaining': session.time_remaining,
                 'data_used': session.data_used
             })
@@ -162,7 +169,6 @@ class UserSessionView(APIView):
                 'success': False,
                 'message': 'Error checking session'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class AllActiveSessionsView(APIView):
     def get(self, request, *args, **kwargs):

@@ -1,36 +1,57 @@
 from datetime import timedelta
 import json
+import uuid
+import os
+import requests
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.timezone import now
-from afrinet.models import Payment
-from .services import MpesaService
-import json
 from django.utils import timezone
-from afrinet.models import Payment, User, Session, Voucher, Package
-import uuid
-from rest_framework.response import Response
-import requests
-from dotenv import load_dotenv
-import os
+from afrinet.models import Payment, User, Session, Package
 from .services import MpesaService
+from dotenv import load_dotenv
 
 load_dotenv()
+
+def normalize_phone(phone):
+    phone = phone.strip()
+    if phone.startswith("07"):
+        return "254" + phone[1:]
+    elif phone.startswith("+"):
+        return phone[1:]
+    return phone
+
 @csrf_exempt
 def stk_push(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            phone_number = data.get("phone_number")
+            phone_number = normalize_phone(data.get("phone_number"))
             amount = data.get("amount")
-
-            print("📩 Incoming STK push request:", data)
+            package_id = data.get("package_id")  # Optional: to specify package
 
             if not phone_number or not amount:
-                return JsonResponse(
-                    {"success": False, "message": "Missing required fields"},
-                    status=400
-                )
+                return JsonResponse({"success": False, "message": "Missing required fields"}, status=400)
+
+            # Find or create user
+            user, created = User.objects.get_or_create(
+                phone_number=phone_number,
+                defaults={'created_at': timezone.now()}
+            )
+
+            # Find package based on amount or package_id
+            package = None
+            if package_id:
+                package = Package.objects.filter(package_id=package_id).first()
+            if not package:
+                package = Package.objects.filter(price=amount).first()
+            
+            if not package:
+                return JsonResponse({"success": False, "message": "No package found for the specified amount or package ID"}, status=400)
+
+            # Update user's package if not set or different
+            if user.package != package:
+                user.package = package
+                user.save()
 
             response = MpesaService.initiate_stk_push(
                 phone_number,
@@ -39,19 +60,12 @@ def stk_push(request):
                 data.get('transaction_desc', 'Wifi Package Payment')
             )
 
-            print("📤 STK Push Response:", response)
-
             if response["success"]:
-                user = User.objects.filter(phone_number=phone_number).first()
-                if not user:
-                    print("❌ User not found")
-                    return JsonResponse({'success': False, 'message': 'User not found'}, status=404)
-
                 Payment.objects.create(
                     user=user,
                     amount=amount,
                     phone_number=phone_number,
-                    package=user.package,
+                    package=package,
                     transaction_id=response.get('checkout_request_id'),
                     status='pending'
                 )
@@ -59,21 +73,11 @@ def stk_push(request):
             return JsonResponse(response)
 
         except json.JSONDecodeError:
-            return JsonResponse(
-                {"success": False, "message": "Invalid JSON"},
-                status=400
-            )
+            return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
         except Exception as e:
-            print("❌ Internal Server Error:", str(e))
-            return JsonResponse(
-                {"success": False, "message": "Internal server error"},
-                status=500
-            )
+            return JsonResponse({"success": False, "message": str(e)}, status=500)
 
-    return JsonResponse(
-        {"success": False, "message": "Method not allowed"},
-        status=405
-    )
+    return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
 
 @csrf_exempt
 def callback(request):
@@ -81,206 +85,113 @@ def callback(request):
         return JsonResponse({'status': 'error', 'message': 'Only POST allowed'}, status=405)
 
     try:
-        print("📞 Callback endpoint hit.")
-        raw_body = request.body.decode()
-        print("📝 Raw body received:", raw_body)
+        data = json.loads(request.body.decode('utf-8'))
+        stk_callback = data.get('Body', {}).get('stkCallback', {})
+        result_code = stk_callback.get('ResultCode')
+        checkout_id = stk_callback.get('CheckoutRequestID')
+        callback_metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
+        metadata = {item['Name']: item['Value'] for item in callback_metadata if 'Name' in item and 'Value' in item}
 
-        callback_data = json.loads(raw_body)
-        print("✅ JSON parsed successfully.")
-
-        result = callback_data.get('Body', {}).get('stkCallback', {})
-        print("📊 Callback Result:", result)
-
-        result_code = result.get('ResultCode')
-        checkout_request_id = result.get('CheckoutRequestID')
-        metadata = result.get('CallbackMetadata', {}).get('Item', [])
-
-        parsed_metadata = {item.get('Name'): item.get('Value') for item in metadata}
-        print("🔍 Parsed Metadata:", parsed_metadata)
-
-        amount = parsed_metadata.get('Amount')
-        mpesa_receipt = parsed_metadata.get('MpesaReceiptNumber')
-        phone_number = str(parsed_metadata.get('PhoneNumber', ''))[3:]  # Remove 254 prefix if needed
-
-        print(f"📱 Phone number parsed: {phone_number}")
-        print(f"💰 Amount: {amount}, 📄 MpesaReceipt: {mpesa_receipt}")
-
-        payment = Payment.objects.filter(
-            transaction_id=checkout_request_id,
-            status='pending'
-        ).first()
-
+        # Find payment by checkout_request_id
+        payment = Payment.objects.filter(transaction_id=checkout_id).first()
         if not payment:
-            print("❌ Payment record not found for CheckoutRequestID:", checkout_request_id)
             return JsonResponse({'status': 'error', 'message': 'Payment not found'}, status=404)
 
-        if result_code == 0:  # Success
+        if result_code == 0:
+            receipt = metadata.get('MpesaReceiptNumber', '').upper().strip()
+
+            # Update payment
             payment.status = 'completed'
-            payment.mpesa_receipt = mpesa_receipt
+            payment.mpesa_receipt = receipt
             payment.completed_at = timezone.now()
             payment.save()
 
-            print("✅ Payment marked as completed.")
-
-            # Extract voucher code from M-Pesa message (this is the key change)
-            # The voucher code typically comes in the transaction metadata
-            # Adjust this based on where Safaricom puts it in your callback
-            voucher_code = parsed_metadata.get('VoucherCode') or mpesa_receipt
-            
-            if not voucher_code:
-                print("⚠️ No voucher code found in callback")
-                voucher_code = "NO_VOUCHER_" + mpesa_receipt[:6]
-            else:
-                voucher_code = voucher_code.upper()  # Ensure uppercase
-
-            # Create voucher record
-            voucher = Voucher.objects.create(
-                code=voucher_code,
-                payment=payment,
-                end_time=timezone.now() + timedelta(days=30)  # 30-day validity
-            )
-
             # Create session
-            Session.objects.create(
+            session = Session.objects.create(
+                session_id=str(uuid.uuid4()),
                 user=payment.user,
                 user_phone=payment.user.phone_number,
                 package=payment.package,
-                voucher_code=voucher_code.code,
+                voucher_code=receipt,
                 duration_minutes=payment.package.duration_minutes,
                 status='active',
                 end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes)
             )
 
-            print(f"📶 Session created with voucher: {voucher_code}")
-            message = "Payment completed successfully"
-
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Payment completed. Session created.',
+                'session_id': str(session.session_id),
+                'expires_at': session.end_time.isoformat()
+            })
         else:
             payment.status = 'failed'
             payment.save()
-            print("❌ Payment failed with ResultCode:", result_code)
-            message = result.get('ResultDesc', 'Payment failed')
+            return JsonResponse({'status': 'error', 'message': stk_callback.get('ResultDesc', 'Failed')}, status=400)
 
-        return JsonResponse({'status': 'success', 'message': message})
-
-    except json.JSONDecodeError:
-        print("❌ JSON Decode Error in callback.")
-        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
     except Exception as e:
-        print("❌ Exception in callback:", str(e))
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-def normalize_phone(phone):
-    phone = phone.strip()
-    if phone.startswith("07"):
-        return "254" + phone[1:]  # Convert 07xx... to 2547xx...
-    elif phone.startswith("+"):
-        return phone[1:]  # Remove +
-    return phone  # Assume already normalized
-
 @csrf_exempt
-def verify_voucher(request):
+def verify_session(request):
     if request.method != 'POST':
-        return JsonResponse(
-            {"success": False, "message": "Only POST method allowed"},
-            status=405
-        )
+        return JsonResponse({'success': False, 'message': 'POST method required'}, status=405)
 
     try:
-        # Parse and normalize data
         data = json.loads(request.body)
-        phone_number = data.get('phone_number', '').strip()
-        voucher_code = data.get('voucher_code', '').strip().upper()  # Force uppercase
-        package_id = data.get('package_id')
+        checkout_id = data.get('transaction_id')
+        phone = normalize_phone(data.get('phone_number'))
 
-        print(f"🔍 Verification attempt - Phone: {phone_number}, Voucher: {voucher_code}")
+        if not checkout_id or not phone:
+            return JsonResponse({'success': False, 'message': 'Checkout ID and phone number are required'}, status=400)
 
-        if not all([phone_number, voucher_code, package_id]):
-            return JsonResponse({
-                "success": False,
-                "message": "Phone number, voucher code and package ID are required"
-            }, status=400)
+        payment = Payment.objects.filter(
+            transaction_id=checkout_id,
+            phone_number=phone
+        ).first()
 
-        # Get voucher (exact case-sensitive match since M-Pesa codes are case-sensitive)
-        try:
-            voucher = Voucher.objects.get(code=voucher_code)
-        except Voucher.DoesNotExist:
-            print(f"❌ Voucher not found: {voucher_code}")
-            return JsonResponse({
-                "success": False,
-                "message": "Invalid voucher code"
-            }, status=400)
+        if not payment:
+            return JsonResponse({'success': False, 'message': 'Payment not found'}, status=404)
 
-        # Validate voucher
-        if voucher.is_used:
-            print(f"⚠️ Voucher already used: {voucher_code}")
-            return JsonResponse({
-                "success": False,
-                "message": "Voucher has already been used"
-            }, status=400)
+        if payment.status == 'completed':
+            existing_session = Session.objects.filter(voucher_code=payment.mpesa_receipt).first()
+            if existing_session:
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Session already exists',
+                    'session_id': str(existing_session.session_id),
+                    'expires_at': existing_session.end_time.isoformat()
+                })
             
-        if voucher.end_time and voucher.end_time < timezone.now():
-            print(f"⌛ Voucher expired: {voucher_code} (Expired on {voucher.end_time})")
+            session = Session.objects.create(
+                session_id=str(uuid.uuid4()),
+                user=payment.user,
+                user_phone=payment.user.phone_number,
+                package=payment.package,
+                voucher_code=payment.mpesa_receipt,
+                duration_minutes=payment.package.duration_minutes,
+                status='active',
+                end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes)
+            )
+            
             return JsonResponse({
-                "success": False,
-                "message": "Voucher has expired"
-            }, status=400)
-
-        # Verify voucher belongs to this user
-        if normalize_phone(voucher.payment.phone_number) != normalize_phone(phone_number):
-            print(f"📱 Phone mismatch: {voucher.payment.phone_number} vs {phone_number}")
-            return JsonResponse({
-                "success": False,
-                "message": "Voucher not associated with this phone number"
-            }, status=400)
-
-        # Get package
-        try:
-            package = Package.objects.get(id=package_id)
-        except Package.DoesNotExist:
-            return JsonResponse({
-                "success": False,
-                "message": "Invalid package"
-            }, status=404)
-
-        # Create new session
-        session = Session.objects.create(
-            session_id=str(uuid.uuid4()),
-            user_phone=phone_number,
-            package=package,
-            voucher_code=voucher.code,
-            duration_minutes=package.duration_minutes,
-            end_time=timezone.now() + timedelta(minutes=package.duration_minutes),
-            status='active'
-        )
-
-        # Mark voucher as used
-        voucher.is_used = True
-        voucher.used_at = timezone.now()
-        voucher.save()
-
-        print(f"✅ Voucher verified: {voucher_code}")
+                'success': True,
+                'message': 'Session created successfully',
+                'session_id': str(session.session_id),
+                'expires_at': session.end_time.isoformat()
+            })
+        
         return JsonResponse({
-            "success": True,
-            "message": "Voucher verified successfully! WiFi session started",
-            "session_id": str(session.session_id),
-            "end_time": session.end_time.isoformat(),
-            "voucher_code": voucher.code
+            'success': False,
+            'message': 'Payment still processing',
+            'status': 'pending'
         })
 
-    except json.JSONDecodeError:
-        return JsonResponse({
-            "success": False,
-            "message": "Invalid JSON format"
-        }, status=400)
     except Exception as e:
-        print(f"🔥 Verification error: {str(e)}")
-        return JsonResponse({
-            "success": False,
-            "message": f"Error verifying voucher_code: {str(e)}"
-        }, status=500)
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 def register_url(request):
-    access_token = MpesaService.get_access_token()  # Your logic to fetch OAuth token
+    access_token = MpesaService.get_access_token()
 
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -295,6 +206,5 @@ def register_url(request):
     }
 
     url = "https://sandbox.safaricom.co.ke/mpesa/c2b/v1/registerurl"
-
     response = requests.post(url, json=payload, headers=headers)
     return JsonResponse(response.json())
