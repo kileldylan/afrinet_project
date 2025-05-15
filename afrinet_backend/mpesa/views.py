@@ -106,18 +106,18 @@ def callback(request):
                     return HttpResponse(status=400)
                 
                 callback = callback_data['Body']['stkCallback']
-                merchant_request_id = callback.get('MerchantRequestID')
-                checkout_request_id = callback.get('CheckoutRequestID')
+                mpesa_receipt = callback.get('MpesaReceiptNumber')
+                transaction_id = callback.get('CheckoutRequestID')
                 result_code = callback.get('ResultCode')
                 
                 # Check if transaction exists
                 try:
                     transaction = Payment.objects.get(
-                        merchant_request_id=merchant_request_id,
-                        checkout_request_id=checkout_request_id
+                        mpesa_receipt=mpesa_receipt,
+                        transaction_id=transaction_id
                     )
                 except Payment.DoesNotExist:
-                    logger.error(f"Transaction not found: {merchant_request_id}")
+                    logger.error(f"Transaction not found: {mpesa_receipt}")
                     return HttpResponse(status=404)
                 
                 # Process based on result code
@@ -128,7 +128,7 @@ def callback(request):
                     transaction.save()
                     
                     # Immediately acknowledge receipt
-                    logger.info(f"Successfully processed transaction {checkout_request_id}")
+                    logger.info(f"Successfully processed transaction {transaction_id}")
                     return HttpResponse(status=200)
                 
                 else:
@@ -136,7 +136,7 @@ def callback(request):
                     transaction.is_finished = True
                     transaction.is_successful = False
                     transaction.save()
-                    logger.warning(f"Failed transaction {checkout_request_id}: {callback.get('ResultDesc')}")
+                    logger.warning(f"Failed transaction {transaction_id}: {callback.get('ResultDesc')}")
                     return HttpResponse(status=200)
             
             except json.JSONDecodeError:
