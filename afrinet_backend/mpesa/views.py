@@ -65,9 +65,10 @@ def stk_push(request):
                     user=user,
                     amount=amount,
                     phone_number=phone_number,
+                    mpesa_receipt=response.get('mpesa_receipt'),
                     package=package,
                     transaction_id=response.get('checkout_request_id'),
-                    status='pending'
+                    status='completed'
                 )
 
             return JsonResponse(response)
