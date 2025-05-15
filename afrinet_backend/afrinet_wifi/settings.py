@@ -122,7 +122,7 @@ REST_FRAMEWORK = {
 # CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://afrinet-project.vercel.app/",
+    "https://afrinet-project.vercel.app",
 ]
 
 # MPESA Config
