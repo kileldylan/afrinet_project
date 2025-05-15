@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Dashboard from './pages/dashboard';
-import AdminDashboard from './pages/admin_dashboard';
+import Dashboard from '@pages/dashboard';
+import AdminDashboard from '@pages/admin_dashboard';
 
 
 function App() {
@@ -15,4 +15,3 @@ function App() {
 }
 
 export default App;
-//fixed import
