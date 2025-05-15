@@ -44,7 +44,7 @@ const AdminDashboard = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get("http://127.0.0.1:8000/api/sessions/");
+      const res = await axios.get("https://afrinet-project.onrender.com/api/sessions/");
       const data = res.data;
   
       if (Array.isArray(data)) {
@@ -68,7 +68,7 @@ const AdminDashboard = () => {
 
   const disconnectUser = async (id) => {
     try {
-      await axios.post(`http://127.0.0.1:8000/api/sessions/disconnect/${id}/`);
+      await axios.post(`https://afrinet-project.onrender.com/api/sessions/disconnect/${id}/`);
       setSnackbar({
         open: true,
         message: 'User disconnected successfully',

@@ -55,7 +55,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchPackages = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/packages/');
+        const response = await axios.get('https://afrinet-project.onrender.com/api/packages/');
         setPackages(response.data);
       } catch (error) {
         console.error("Error fetching packages:", error);
@@ -79,7 +79,7 @@ const Dashboard = () => {
     if (paymentStatus === 'pending' && pollingCount < maxPollingAttempts) {
       intervalId = setInterval(async () => {
         try {
-          const response = await axios.post('https://properties-renewable-labeled-automobiles.trycloudflare.com/verify-session/', {
+          const response = await axios.post('https://afrinet-project.onrender.com/verify-session/', {
             phone_number: phoneNumber,
             transaction_id: transactionId,
           });
@@ -145,7 +145,7 @@ const Dashboard = () => {
           ? `254${phoneNumber.substring(1)}` 
           : `254${phoneNumber}`;
 
-      const response = await axios.post('http://127.0.0.1:8000/mpesa/stk-push/', {
+      const response = await axios.post('https://afrinet-project.onrender.com/mpesa/stk-push/', {
         phone_number: rawPhone,
         amount: selectedOffer.price.toString(),
         account_reference: `WIFI_${selectedOffer.id}`,
@@ -198,7 +198,7 @@ const Dashboard = () => {
     try {
       setVerifying(true);
 
-      const response = await axios.post('http://127.0.0.1:8000/mpesa/verify-session/', {
+      const response = await axios.post('https://afrinet-project.onrender.com/mpesa/verify-session/', {
         phone_number: phoneNumber,
         transaction_id: verificationCode,
       });
