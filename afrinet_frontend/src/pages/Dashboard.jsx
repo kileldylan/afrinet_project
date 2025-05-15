@@ -79,7 +79,7 @@ const Dashboard = () => {
     if (paymentStatus === 'pending' && pollingCount < maxPollingAttempts) {
       intervalId = setInterval(async () => {
         try {
-          const response = await axios.post('https://afrinet-project.onrender.com/verify-session/', {
+          const response = await axios.post('https://afrinet-project.onrender.com/mpesa/verify-session/', {
             phone_number: phoneNumber,
             transaction_id: transactionId,
           });
