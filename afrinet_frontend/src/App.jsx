@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Dashboard from '@pages/Dashboard';
-import AdminDashboard from '@pages/AdminDashboard';
-
+import Dashboard from './pages/Dashboard';
+import AdminDashboard from './pages/admin_dashboard';
 
 function App() {
   return (
