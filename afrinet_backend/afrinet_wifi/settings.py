@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security settings
 SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')
 DEBUG = False
-ALLOWED_HOSTS = ['*']  # You'll replace this with your Render URL after deployment
+ALLOWED_HOSTS = ['*', 'https://afrinet-project.onrender.com']  # You'll replace this with your Render URL after deployment
 
 # Application definition
 INSTALLED_APPS = [
@@ -122,7 +122,7 @@ REST_FRAMEWORK = {
 # CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://your-frontend-domain.com",
+    "https://afrinet-project.vercel.app/",
 ]
 
 # MPESA Config
