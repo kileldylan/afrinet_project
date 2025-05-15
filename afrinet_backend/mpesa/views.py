@@ -1,14 +1,19 @@
 from datetime import timedelta
 import json
+from time import sleep
 import uuid
 import os
+from venv import logger
 import requests
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, shared_task
 from django.utils import timezone
 from afrinet.models import Payment, User, Session, Package
 from .services import MpesaService
 from dotenv import load_dotenv
+from django.http import HttpResponse
+import logging
+from celery import shared_task
 
 load_dotenv()
 
@@ -82,56 +87,83 @@ def stk_push(request):
 
 @csrf_exempt
 def callback(request):
-    if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'Only POST allowed'}, status=405)
+    """
+    Handle MPESA STK Push callback with retries and verification
+    """
+    max_retries = 3
+    retry_delay = 2  # seconds
+    
+    if request.method == 'POST':
+        for attempt in range(max_retries):
+            try:
+                # Parse the callback data
+                callback_data = json.loads(request.body)
+                logger.info(f"MPESA Callback Received (Attempt {attempt + 1}): {callback_data}")
+                
+                # Verify this is a valid MPESA callback
+                if 'Body' not in callback_data or 'stkCallback' not in callback_data['Body']:
+                    logger.error("Invalid callback format")
+                    return HttpResponse(status=400)
+                
+                callback = callback_data['Body']['stkCallback']
+                merchant_request_id = callback.get('MerchantRequestID')
+                checkout_request_id = callback.get('CheckoutRequestID')
+                result_code = callback.get('ResultCode')
+                
+                # Check if transaction exists
+                try:
+                    transaction = Payment.objects.get(
+                        merchant_request_id=merchant_request_id,
+                        checkout_request_id=checkout_request_id
+                    )
+                except Payment.DoesNotExist:
+                    logger.error(f"Transaction not found: {merchant_request_id}")
+                    return HttpResponse(status=404)
+                
+                # Process based on result code
+                if result_code == 0:
+                    # Success case
+                    transaction.is_finished = True
+                    transaction.is_successful = True
+                    transaction.save()
+                    
+                    # Immediately acknowledge receipt
+                    logger.info(f"Successfully processed transaction {checkout_request_id}")
+                    return HttpResponse(status=200)
+                
+                else:
+                    # Failure case
+                    transaction.is_finished = True
+                    transaction.is_successful = False
+                    transaction.save()
+                    logger.warning(f"Failed transaction {checkout_request_id}: {callback.get('ResultDesc')}")
+                    return HttpResponse(status=200)
+            
+            except json.JSONDecodeError:
+                logger.error("Invalid JSON received")
+                return HttpResponse(status=400)
+            except Exception as e:
+                logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    sleep(retry_delay)
+                continue
+        
+        logger.error("All retries exhausted")
+        return HttpResponse(status=500)
+    
+    return HttpResponse(status=405)
 
+# In your view (after saving the transaction):
+@shared_task
+def process_callback_async(transaction_id):
     try:
-        data = json.loads(request.body.decode('utf-8'))
-        stk_callback = data.get('Body', {}).get('stkCallback', {})
-        result_code = stk_callback.get('ResultCode')
-        checkout_id = stk_callback.get('CheckoutRequestID')
-        callback_metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
-        metadata = {item['Name']: item['Value'] for item in callback_metadata if 'Name' in item and 'Value' in item}
-
-        # Find payment by checkout_request_id
-        payment = Payment.objects.filter(transaction_id=checkout_id).first()
-        if not payment:
-            return JsonResponse({'status': 'error', 'message': 'Payment not found'}, status=404)
-
-        if result_code == 0:
-            receipt = metadata.get('MpesaReceiptNumber', '').upper().strip()
-
-            # Update payment
-            payment.status = 'completed'
-            payment.mpesa_receipt = receipt
-            payment.completed_at = timezone.now()
-            payment.save()
-
-            # Create session
-            session = Session.objects.create(
-                session_id=str(uuid.uuid4()),
-                user=payment.user,
-                user_phone=payment.user.phone_number,
-                package=payment.package,
-                voucher_code=receipt,
-                duration_minutes=payment.package.duration_minutes,
-                status='active',
-                end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes)
-            )
-
-            return JsonResponse({
-                'status': 'success',
-                'message': 'Payment completed. Session created.',
-                'session_id': str(session.session_id),
-                'expires_at': session.end_time.isoformat()
-            })
-        else:
-            payment.status = 'failed'
-            payment.save()
-            return JsonResponse({'status': 'error', 'message': stk_callback.get('ResultDesc', 'Failed')}, status=400)
-
+        transaction = Payment.objects.get(id=transaction_id)
+        # Additional processing here
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        logger.error(f"Async processing failed: {str(e)}")
+        
+# In your view:
+        process_callback_async.delay(transaction.id)
 
 @csrf_exempt
 def verify_session(request):
