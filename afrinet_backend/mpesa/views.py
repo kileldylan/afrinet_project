@@ -6,7 +6,7 @@ import os
 from venv import logger
 import requests
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt, shared_task
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from afrinet.models import Payment, User, Session, Package
 from .services import MpesaService
