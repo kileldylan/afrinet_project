@@ -89,8 +89,6 @@ def stk_push(request):
                 package=package,
                 transaction_id=response.get("checkout_request_id"),
                 status="pending",
-                is_finished=False,
-                is_successful=False
             )
             logger.info(f"Payment created: transaction_id={payment.transaction_id}")
             return JsonResponse({
