@@ -69,6 +69,7 @@ class Session(models.Model):
     disconnected = models.BooleanField(default=False)
     data_used = models.BigIntegerField(default=0)  # bytes
     package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True)
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     disconnected_at = models.DateTimeField(null=True, blank=True)
     
