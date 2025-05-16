@@ -150,7 +150,7 @@ class UserSessionView(APIView):
     def get(self, request, phone_number, *args, **kwargs):
         try:
             session = Session.objects.filter(
-                user_phone=phone_number,
+                phone_number=phone_number,
                 status='active'
             ).latest('created_at')
             return Response({
@@ -177,7 +177,7 @@ class AllActiveSessionsView(APIView):
         for session in sessions:
             session_data.append({
                 "id": str(session.session_id),
-                "user_phone": session.user_phone,
+                "phone_number": session.phone_number,
                 "device_mac": session.device_mac,
                 "ip_address": session.ip_address,
                 "package_name": session.package.package_id if session.package else "N/A",
