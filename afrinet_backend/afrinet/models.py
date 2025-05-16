@@ -59,7 +59,7 @@ class Payment(models.Model):
 class Session(models.Model):
     session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    user_phone = models.CharField(max_length=15, null=True, blank=True)  # stored separately for unauthenticated sessions
+    phone_number = models.CharField(max_length=15, null=True, blank=True)  # stored separately for unauthenticated sessions
     voucher_code = models.CharField(max_length=100, null=True, blank=True)
     device_mac = models.CharField(max_length=50, null=True, blank=True)
     ip_address = models.GenericIPAddressField(default="127.0.0.1")
@@ -109,7 +109,7 @@ class Session(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user_phone or self.device_mac} - {self.status}"
+        return f"{self.phone_number or self.device_mac} - {self.status}"
     
 class Voucher(models.Model):
     code = models.CharField(max_length=100, unique=True)

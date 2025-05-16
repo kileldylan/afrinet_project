@@ -175,13 +175,14 @@ def callback(request):
                     session_id=uuid.uuid4(),
                     user=payment.user,
                     package=payment.package,
+                    payment=payment,
                     phone_number=payment.phone_number,
                     voucher_code=mpesa_receipt,
-                    started_at=timezone.now(),
-                    expires_at=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
+                    created_at=timezone.now(),
+                    end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
                     status="active"
                 )
-                logger.info(f"Session created: session_id={session.session_id}, expires_at={session.expires_at}")
+                logger.info(f"Session created: session_id={session.session_id}, end_time={session.end_time}")
             except DatabaseError as e:
                 logger.exception(f"Failed to create session for transaction_id={transaction_id}: {str(e)}")
                 return HttpResponse(status=500)
@@ -257,7 +258,7 @@ def verify_session(request):
                     "success": True,
                     "message": "Session already exists",
                     "session_id": str(session.session_id),
-                    "expires_at": session.expires_at.isoformat()
+                    "end_time": session.end_time.isoformat()
                 })
 
             # Create new session
@@ -266,10 +267,11 @@ def verify_session(request):
                     session_id=uuid.uuid4(),
                     user=payment.user,
                     package=payment.package,
+                    payment=payment,
                     phone_number=payment.phone_number,
                     voucher_code=payment.mpesa_receipt,
-                    started_at=timezone.now(),
-                    expires_at=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
+                    created_at=timezone.now(),
+                    end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
                     status="active"
                 )
                 logger.info(f"Session created in verify_session: session_id={session.session_id}")
@@ -277,7 +279,7 @@ def verify_session(request):
                     "success": True,
                     "message": "Session created successfully",
                     "session_id": str(session.session_id),
-                    "expires_at": session.expires_at.isoformat()
+                    "end_time": session.end_time.isoformat()
                 })
             except DatabaseError as e:
                 logger.exception(f"Failed to create session in verify_session: {str(e)}")
