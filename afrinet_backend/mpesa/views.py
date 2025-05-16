@@ -266,7 +266,6 @@ def verify_session(request):
                     session_id=uuid.uuid4(),
                     user=payment.user,
                     package=payment.package,
-                    payment=payment,
                     phone_number=payment.phone_number,
                     voucher_code=payment.mpesa_receipt,
                     started_at=timezone.now(),
