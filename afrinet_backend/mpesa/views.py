@@ -1,5 +1,4 @@
 import json
-from time import sleep
 import uuid
 import os
 import logging
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 def normalize_phone(phone):
-    """Normalize phone number to +254 format."""
+    """Normalize phone number to 254xxxxxxxxx format."""
     phone = phone.strip()
     if phone.startswith("07"):
         return "254" + phone[1:]
@@ -28,16 +27,20 @@ def normalize_phone(phone):
         return phone[1:]
     elif phone.startswith("254"):
         return phone
+    elif phone.startswith("0"):
+        return "254" + phone[1:]
     return "254" + phone
 
 @csrf_exempt
 def stk_push(request):
     """Initiate M-Pesa STK Push payment."""
     if request.method != "POST":
+        logger.error("Non-POST request to stk_push endpoint")
         return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
 
     try:
         data = json.loads(request.body)
+        logger.info(f"stk_push request: {json.dumps(data, indent=2)}")
         phone_number = normalize_phone(data.get("phone_number"))
         amount = data.get("amount")
         account_reference = data.get("account_reference", "WIFI_PAYMENT")
@@ -45,7 +48,7 @@ def stk_push(request):
         package_id = data.get("package_id")  # Optional
 
         if not phone_number or not amount:
-            logger.error("Missing phone_number or amount in request")
+            logger.error("Missing phone_number or amount in stk_push request")
             return JsonResponse({"success": False, "message": "Missing required fields"}, status=400)
 
         # Find or create user
@@ -55,7 +58,7 @@ def stk_push(request):
         )
         logger.info(f"User {'created' if created else 'retrieved'}: {phone_number}")
 
-        # Find package based on amount or package_id
+        # Find package
         package = None
         if package_id:
             package = Package.objects.filter(package_id=package_id).first()
@@ -79,9 +82,10 @@ def stk_push(request):
             account_reference=account_reference,
             transaction_desc=transaction_desc
         )
+        logger.info(f"MpesaService.initiate_stk_push response: {json.dumps(response, indent=2)}")
 
         if response.get("success"):
-            # Create Payment object without mpesa_receipt (set in callback)
+            # Create Payment object with pending status
             payment = Payment.objects.create(
                 user=user,
                 amount=amount,
@@ -89,6 +93,9 @@ def stk_push(request):
                 package=package,
                 transaction_id=response.get("checkout_request_id"),
                 status="pending",
+                is_finished=False,
+                is_successful=False,
+                created_at=timezone.now()
             )
             logger.info(f"Payment created: transaction_id={payment.transaction_id}")
             return JsonResponse({
@@ -139,30 +146,30 @@ def callback(request):
             amount = metadata.get("Amount")
             logger.info(f"Callback metadata: receipt={mpesa_receipt}, phone={phone_number}, amount={amount}")
 
-        # Find Payment by transaction_id
+        # Find Payment
         try:
             payment = Payment.objects.get(transaction_id=transaction_id)
         except Payment.DoesNotExist:
             logger.error(f"Payment not found for transaction_id={transaction_id}")
             return HttpResponse(status=404)
 
-        # Update Payment status
+        # Update Payment
         payment.is_finished = True
         payment.is_successful = (result_code == 0)
         payment.status = "completed" if result_code == 0 else "failed"
         if result_code == 0 and mpesa_receipt:
             payment.mpesa_receipt = mpesa_receipt
-            payment.phone_number = phone_number or payment.phone_number
+            payment.phone_number = normalize_phone(phone_number or payment.phone_number)
         payment.save()
         logger.info(f"Payment updated: transaction_id={transaction_id}, status={payment.status}")
 
         # Create Session for successful payment
         if result_code == 0:
             try:
-                # Check for existing session to avoid duplicates
+                # Check for existing session
                 existing_session = Session.objects.filter(payment=payment).first()
                 if existing_session:
-                    logger.info(f"Session already exists for payment: session_id={existing_session.session_id}")
+                    logger.info(f"Session already exists: session_id={existing_session.session_id}")
                     return HttpResponse(status=200)
 
                 # Create new session
@@ -195,13 +202,14 @@ def callback(request):
 
 @csrf_exempt
 def verify_session(request):
-    """Verify payment and return or create session."""
+    """Verify payment and return or create session, with fallback query."""
     if request.method != "POST":
         logger.error("Non-POST request to verify_session endpoint")
         return JsonResponse({"success": False, "message": "POST method required"}, status=405)
 
     try:
         data = json.loads(request.body)
+        logger.info(f"verify_session request: {json.dumps(data, indent=2)}")
         checkout_id = data.get("transaction_id")
         phone_number = normalize_phone(data.get("phone_number"))
 
@@ -219,6 +227,30 @@ def verify_session(request):
             logger.error(f"Payment not found: transaction_id={checkout_id}, phone_number={phone_number}")
             return JsonResponse({"success": False, "message": "Payment not found"}, status=404)
 
+        # Fallback: Query M-Pesa if payment is pending and older than 30 seconds
+        if payment.status == "pending" and (timezone.now() - payment.created_at).total_seconds() > 30:
+            logger.info(f"Payment pending for >30s, querying M-Pesa: transaction_id={checkout_id}")
+            try:
+                query_response = MpesaService.query_transaction(checkout_id)
+                logger.info(f"M-Pesa query response: {json.dumps(query_response, indent=2)}")
+                if query_response.get("success") and query_response.get("ResultCode") == 0:
+                    payment.status = "completed"
+                    payment.is_successful = True
+                    payment.is_finished = True
+                    payment.mpesa_receipt = query_response.get("MpesaReceiptNumber")
+                    payment.phone_number = normalize_phone(query_response.get("PhoneNumber", payment.phone_number))
+                    payment.save()
+                    logger.info(f"Payment updated via query: transaction_id={checkout_id}, status=completed")
+                elif query_response.get("ResultCode") != 0:
+                    payment.status = "failed"
+                    payment.is_finished = True
+                    payment.is_successful = False
+                    payment.save()
+                    logger.info(f"Payment marked failed via query: transaction_id={checkout_id}")
+            except Exception as e:
+                logger.exception(f"Failed to query M-Pesa for transaction_id={checkout_id}: {str(e)}")
+
+        # Handle completed payment
         if payment.status == "completed" and payment.is_successful:
             # Check for existing session
             session = Session.objects.filter(payment=payment).first()
@@ -231,7 +263,7 @@ def verify_session(request):
                     "expires_at": session.expires_at.isoformat()
                 })
 
-            # Create new session (e.g., if callback failed to create one)
+            # Create new session
             try:
                 session = Session.objects.create(
                     session_id=uuid.uuid4(),
@@ -286,7 +318,7 @@ def register_url(request):
         }
         url = "https://sandbox.safaricom.co.ke/mpesa/c2b/v1/registerurl"
         response = requests.post(url, json=payload, headers=headers)
-        logger.info(f"Register URL response: {response.json()}")
+        logger.info(f"Register URL response: {json.dumps(response.json(), indent=2)}")
         return JsonResponse(response.json())
     except Exception as e:
         logger.exception(f"Error in register_url: {str(e)}")
