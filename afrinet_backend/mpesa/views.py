@@ -93,8 +93,6 @@ def stk_push(request):
                 package=package,
                 transaction_id=response.get("checkout_request_id"),
                 status="pending",
-                is_finished=False,
-                is_successful=False,
                 created_at=timezone.now()
             )
             logger.info(f"Payment created: transaction_id={payment.transaction_id}")
@@ -177,7 +175,6 @@ def callback(request):
                     session_id=uuid.uuid4(),
                     user=payment.user,
                     package=payment.package,
-                    payment=payment,
                     phone_number=payment.phone_number,
                     voucher_code=mpesa_receipt,
                     started_at=timezone.now(),
