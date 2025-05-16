@@ -93,6 +93,8 @@ def stk_push(request):
                 package=package,
                 transaction_id=response.get("checkout_request_id"),
                 status="pending",
+                is_finished=False,
+                is_successful=False,
                 created_at=timezone.now()
             )
             logger.info(f"Payment created: transaction_id={payment.transaction_id}")
@@ -123,13 +125,22 @@ def callback(request):
         callback_data = json.loads(request.body)
         logger.info(f"Callback received: {json.dumps(callback_data, indent=2)}")
 
-        callback = callback_data.get("Body", {}).get("stkCallback", {})
+        # Try both stkCallback and stk_callback keys
+        callback = callback_data.get("Body", {}).get("stkCallback", None)
+        if callback is None:
+            callback = callback_data.get("Body", {}).get("stk_callback", {})
+            logger.warning("Using 'stk_callback' key instead of 'stkCallback' in callback payload")
+
+        if not callback:
+            logger.error("Invalid callback: missing stkCallback or stk_callback in Body")
+            return HttpResponse(status=400)
+
         result_code = callback.get("ResultCode")
         transaction_id = callback.get("CheckoutRequestID")
         result_desc = callback.get("ResultDesc")
 
-        if not callback or not transaction_id:
-            logger.error("Invalid callback: missing stkCallback or CheckoutRequestID")
+        if not transaction_id:
+            logger.error("Invalid callback: missing CheckoutRequestID")
             return HttpResponse(status=400)
 
         # Extract metadata if payment was successful
@@ -151,10 +162,16 @@ def callback(request):
             logger.error(f"Payment not found for transaction_id={transaction_id}")
             return HttpResponse(status=404)
 
+        # Skip if payment is already finished
+        if payment.is_finished:
+            logger.info(f"Payment already processed: transaction_id={transaction_id}, status={payment.status}")
+            return HttpResponse(status=200)
+
         # Update Payment
         payment.is_finished = True
         payment.is_successful = (result_code == 0)
         payment.status = "completed" if result_code == 0 else "failed"
+        payment.completed_at = timezone.now()
         if result_code == 0 and mpesa_receipt:
             payment.mpesa_receipt = mpesa_receipt
             payment.phone_number = normalize_phone(phone_number or payment.phone_number)
@@ -170,6 +187,11 @@ def callback(request):
                     logger.info(f"Session already exists: session_id={existing_session.session_id}")
                     return HttpResponse(status=200)
 
+                # Validate package
+                if not payment.package:
+                    logger.error(f"No package associated with payment: transaction_id={transaction_id}")
+                    return HttpResponse(status=500)
+
                 # Create new session
                 session = Session.objects.create(
                     session_id=uuid.uuid4(),
@@ -180,6 +202,7 @@ def callback(request):
                     voucher_code=mpesa_receipt,
                     created_at=timezone.now(),
                     end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
+                    duration_minutes=payment.package.duration_minutes,
                     status="active"
                 )
                 logger.info(f"Session created: session_id={session.session_id}, end_time={session.end_time}")
@@ -226,7 +249,7 @@ def verify_session(request):
             return JsonResponse({"success": False, "message": "Payment not found"}, status=404)
 
         # Fallback: Query M-Pesa if payment is pending and older than 30 seconds
-        if payment.status == "pending" and (timezone.now() - payment.created_at).total_seconds() > 30:
+        if payment.status == "pending" and not payment.is_finished and (timezone.now() - payment.created_at).total_seconds() > 30:
             logger.info(f"Payment pending for >30s, querying M-Pesa: transaction_id={checkout_id}")
             try:
                 query_response = MpesaService.query_transaction(checkout_id)
@@ -235,6 +258,7 @@ def verify_session(request):
                     payment.status = "completed"
                     payment.is_successful = True
                     payment.is_finished = True
+                    payment.completed_at = timezone.now()
                     payment.mpesa_receipt = query_response.get("MpesaReceiptNumber")
                     payment.phone_number = normalize_phone(query_response.get("PhoneNumber", payment.phone_number))
                     payment.save()
@@ -243,6 +267,7 @@ def verify_session(request):
                     payment.status = "failed"
                     payment.is_finished = True
                     payment.is_successful = False
+                    payment.completed_at = timezone.now()
                     payment.save()
                     logger.info(f"Payment marked failed via query: transaction_id={checkout_id}")
             except Exception as e:
@@ -261,6 +286,11 @@ def verify_session(request):
                     "end_time": session.end_time.isoformat()
                 })
 
+            # Validate package
+            if not payment.package:
+                logger.error(f"No package associated with payment: transaction_id={checkout_id}")
+                return JsonResponse({"success": False, "message": "No package associated with payment"}, status=500)
+
             # Create new session
             try:
                 session = Session.objects.create(
@@ -272,6 +302,7 @@ def verify_session(request):
                     voucher_code=payment.mpesa_receipt,
                     created_at=timezone.now(),
                     end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
+                    duration_minutes=payment.package.duration_minutes,
                     status="active"
                 )
                 logger.info(f"Session created in verify_session: session_id={session.session_id}")
