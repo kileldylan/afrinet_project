@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Active_Users from './pages/Active_Users';
-import Dashboard from './pages/dashboard';
 import AdminDashboard from './pages/admin_dashboard';
 import Payments from './pages/Payments';
 import Packages from './pages/Packages';
@@ -10,6 +9,8 @@ import Expenses from './pages/Expenses';
 import ActiveUsers from './pages/ActiveUsers';
 import Mikrotik from './pages/Mikrotik';
 import SMS from './pages/Sms';
+import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         <Route path="/vouchers" element={<Vouchers/>} />
         <Route path="/sms" element={<SMS/>} />
         <Route path="/mikrotik" element={<Mikrotik/>} />
+        <Route path="/settings" element={<Settings/>} />
       </Routes>
     </BrowserRouter>
   ); 

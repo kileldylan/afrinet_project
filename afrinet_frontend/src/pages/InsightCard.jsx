@@ -190,7 +190,7 @@ const InsightCard = () => {
                     padding: 3,
                   }}
                 >
-                  <CardContent sx={{ flexGrow: 1, p: 2 }}>
+                  <CardContent sx={{ flexGrow: 1, p: 2, fontFamily: 'Roboto, sans-serif'}}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box mr={3}>{item.icon}</Box>
                       <Box textAlign="right">
@@ -210,14 +210,14 @@ const InsightCard = () => {
 
           <Grid item xs={12} sm={12} md={8}>
 
-            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300 }}>
+            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300, fontFamily: 'Roboto, sans-serif' }}>
               <Typography variant="h6" color="text.primary" mb={2}>Revenue Trend</Typography>
               <Bar data={barData} options={chartOptions} />
             </Card>
           </Grid>
 
           <Grid item xs={12} sm={12} md={8}>
-            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300 }}>
+            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300, fontFamily: 'Roboto, sans-serif' }}>
               <Typography variant="h6" color="text.primary" mb={2}>Users Online</Typography>
               <Line data={lineData} options={chartOptions} />
             </Card>
@@ -225,28 +225,28 @@ const InsightCard = () => {
 
           <Grid item xs={12} sm={12} md={8}>
 
-            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300 }}>
+            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300, fontFamily: 'Roboto, sans-serif' }}>
               <Typography variant="h6" color="text.primary" mb={2}>Expense Status</Typography>
               <Pie data={pieData} options={chartOptions} />
             </Card>
           </Grid>
 
           <Grid item xs={12} sm={12} md={8}>
-            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300 }}>
+            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300, fontFamily: 'Roboto, sans-serif' }}>
               <Typography variant="h6" color="text.primary" mb={2}>Monthly Revenue Growth</Typography>
               <Bar data={barDataGrowth} options={chartOptions} />
             </Card>
           </Grid>
 
           <Grid item xs={12} sm={12} md={8}>
-            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300 }}>
+            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300, fontFamily: 'Roboto, sans-serif' }}>
               <Typography variant="h6" color="text.primary" mb={2}>User Retention</Typography>
               <Pie data={pieDataRetention} options={chartOptions} />
             </Card>
           </Grid>
 
           <Grid item xs={12} sm={24} md={6}>
-            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300 }}>
+            <Card sx={{ background: 'linear-gradient(135deg, #40a1f1, #c1dbf0)', borderRadius: 2, p: 2, height: 300, fontFamily: 'Roboto, sans-serif' }}>
               <Typography variant="h6" color="text.primary" mb={2}>Network Uptime Trend</Typography>
               <Line data={lineDataUptime} options={chartOptions} />
             </Card>

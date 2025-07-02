@@ -17,15 +17,15 @@ import { Link } from 'react-router-dom';
 const Sidebar = () => {
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/' },
-    { text: 'Packages', icon: <Inventory />, path: '/packages' },
     { text: 'Users', icon: <People />, path: '/users' },
+    { text: 'Active Users', icon: <Wifi />, path: '/active-users' },
+    { text: 'Packages', icon: <Inventory />, path: '/packages' },
     { text: 'Payments', icon: <Payment />, path: '/payments' },
     { text: 'Vouchers', icon: <ConfirmationNumber />, path: '/vouchers' },
-    { text: 'Active Users', icon: <Wifi />, path: '/active-users' },
-    { text: 'Settings', icon: <Settings />, path: '/settings' },
     { text: 'Expenses', icon: <MoneyOff />, path: '/expenses' },
     { text: 'SMS', icon: <Message />, path: '/sms' },
     { text: 'Mikrotik', icon: <Devices />, path: '/mikrotik' },
+    { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];
 
   return (
