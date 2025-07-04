@@ -25,14 +25,25 @@ class Package(models.Model):
             return self.duration_value * 1440
         return self.duration_value
 
-
 class User(models.Model):
-    package = models.ForeignKey(Package, on_delete=models.SET_NULL, null=True, blank=True)
-    phone_number = models.CharField(max_length=15, unique=True)
+    USER_TYPES = (
+        ('hotspot', 'Hotspot'),
+        ('pppoe', 'PPPoE'),
+    )
+    STATUS_CHOICES = (
+        ('active', 'Active'),
+        ('paused', 'Paused'),
+        ('expired', 'Expired'),
+    )
+    
+    username = models.CharField(max_length=100, unique=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    user_type = models.CharField(max_length=10, choices=USER_TYPES, default="")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
+    package = models.ForeignKey('Package', on_delete=models.SET_NULL, null=True)
+    expiry_date = models.DateTimeField(null=True, blank=True)
+    last_online = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.phone_number
 
 class Payment(models.Model):
     STATUS_CHOICES = (

@@ -1,8 +1,9 @@
 from rest_framework import generics, status
+from rest_framework import filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Package, User, Payment, Session
-from .serializers import PackageSerializer, PaymentInitiationSerializer
+from .serializers import PackageSerializer, PaymentInitiationSerializer, UserSerializer
 from django.utils import timezone
 from datetime import timedelta
 import logging
@@ -19,6 +20,24 @@ class PackageListView(generics.ListAPIView):
     queryset = Package.objects.all().order_by('price')
     serializer_class = PackageSerializer
 
+class UserListAPIView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['username', 'phone']
+
+    def get_queryset(self):
+        queryset = User.objects.all()
+        user_filter = self.request.query_params.get('filter', None)
+        
+        if user_filter == 'hotspot':
+            queryset = queryset.filter(user_type='hotspot')
+        elif user_filter == 'pppoe':
+            queryset = queryset.filter(user_type='pppoe')
+        elif user_filter == 'paused':
+            queryset = queryset.filter(status='paused')
+            
+        return queryset.order_by('-created_at')
+    
 class MpesaAuthTestView(APIView):
     """Endpoint to test M-Pesa authentication"""
     def get(self, request):

@@ -4,7 +4,12 @@ from .models import User, Payment, Session, Package
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'
+        fields = [
+            'id', 'username', 'phone', 'user_type', 
+            'status', 'package', 'expiry_date', 'last_online'
+        ]
+    
+    package = serializers.StringRelatedField()
     
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
