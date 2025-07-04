@@ -8,10 +8,19 @@ const SMS = () => {
     { id: 1, recipient: '254712345678', message: 'Your bill is due', date: 'Jul 02, 2025 02:00 PM', status: 'Sent' },
     { id: 2, recipient: '254798765432', message: 'Welcome to Afrinet', date: 'Jul 02, 2025 01:30 PM', status: 'Pending' },
   ];
+  const [mobileOpen, setMobileOpen] = useState(false);
 
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+  
   return (
     <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar />
+      <Sidebar 
+        mobileOpen={mobileOpen} 
+        handleDrawerToggle={handleDrawerToggle} 
+        isMobile={isMobile}
+      />
       <Box
         component="main"
         sx={{

@@ -34,10 +34,19 @@ const Payments = () => {
     { user: 'A33', phone: '075440468', receiptNo: 'TG219DRY3F', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 10:43', disbursement: 'Direct' },
     { user: 'A213', phone: '071389437', receiptNo: 'TG19USUGX', amount: 'Ksh 10.00', checked: 'Yes', paidAt: '01/07/2025 21:41', disbursement: 'Direct' },
   ];
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
 
   return (
     <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar />
+      <Sidebar 
+        mobileOpen={mobileOpen} 
+        handleDrawerToggle={handleDrawerToggle} 
+        isMobile={isMobile}
+      />
       <Box
         component="main"
         sx={{

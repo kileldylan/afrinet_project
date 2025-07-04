@@ -21,10 +21,19 @@ const Vouchers = () => {
     { code: 'VCH-345678', package: '12 Hours unlimited', price: 'Ksh 30.00', expiry: '05/07/2025 01:32', status: 'Active', created: '02/07/2025 12:10' },
     { code: 'VCH-901234', package: '24 Hours unlimited', price: 'Ksh 50.00', expiry: '06/07/2025 01:32', status: 'Active', created: '02/07/2025 12:15' },
   ];
+  const [mobileOpen, setMobileOpen] = useState(false);
 
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+  
   return (
     <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar />
+      <Sidebar 
+        mobileOpen={mobileOpen} 
+        handleDrawerToggle={handleDrawerToggle} 
+        isMobile={isMobile}
+      />
       <Box
         component="main"
         sx={{

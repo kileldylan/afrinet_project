@@ -145,6 +145,11 @@ const Settings = () => {
       [event.target.name]: event.target.checked,
     });
   };
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
 
   return (
     <Box sx={{display: 'flex',
@@ -152,8 +157,12 @@ const Settings = () => {
               minHeight: '100vh',
               }}>
       {/* Sidebar */}
-      <Sidebar />
-      
+      <Sidebar 
+        mobileOpen={mobileOpen} 
+        handleDrawerToggle={handleDrawerToggle} 
+        isMobile={isMobile}
+      />
+            
       {/* Main Content */}
       <Box component="main"        
           sx={{

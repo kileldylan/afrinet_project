@@ -8,10 +8,19 @@ const Mikrotik = () => {
     { id: 1, device: 'Router-01', ip: '192.168.1.1', status: 'Online', lastUpdate: 'Jul 02, 2025 02:45 PM' },
     { id: 2, device: 'Router-02', ip: '192.168.1.2', status: 'Offline', lastUpdate: 'Jul 02, 2025 01:15 PM' },
   ];
+  const [mobileOpen, setMobileOpen] = useState(false);
 
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+  
   return (
     <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar />
+      <Sidebar 
+        mobileOpen={mobileOpen} 
+        handleDrawerToggle={handleDrawerToggle} 
+        isMobile={isMobile}
+      />
       <Box
         component="main"
         sx={{

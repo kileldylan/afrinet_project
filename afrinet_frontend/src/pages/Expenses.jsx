@@ -21,10 +21,19 @@ const Expenses = () => {
     { date: '28/06/2025', description: 'Staff Salaries', amount: 'Ksh 50,000.00', category: 'Salaries', status: 'Paid' },
     { date: '25/06/2025', description: 'Equipment Purchase', amount: 'Ksh 20,000.00', category: 'Equipment', status: 'Pending' },
   ];
+  const [mobileOpen, setMobileOpen] = useState(false);
 
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+  
   return (
     <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar />
+      <Sidebar 
+        mobileOpen={mobileOpen} 
+        handleDrawerToggle={handleDrawerToggle} 
+        isMobile={isMobile}
+      />
       <Box
         component="main"
         sx={{
