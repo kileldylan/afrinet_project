@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { 
   Box, 
+  Grid, 
   Typography, 
+  Paper, 
   IconButton,
   useTheme,
   useMediaQuery,
@@ -10,8 +12,9 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Sidebar from './Sidebar';
+import Insights from './InsightCard';
 
-const Dashboard = ({ children }) => {
+const Dashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -21,54 +24,53 @@ const Dashboard = ({ children }) => {
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex',
-      width: '100vw',
-      height: '100vh',
-      overflow: 'hidden'
-    }}>
+      <Box
+        sx={{
+          display: 'flex',
+          fontFamily: 'Roboto, sans-serif',
+          height: '100vh',
+          width: '100vw',
+          maxWidth: '100%',
+          overflowX: 'hidden',
+        }}
+      >
       <CssBaseline />
-      
+      {/* Sidebar - Always rendered but conditionally shown based on screen size */}
       <Sidebar 
         mobileOpen={mobileOpen} 
         handleDrawerToggle={handleDrawerToggle} 
         isMobile={isMobile}
       />
       
+      {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          height: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
+          p: 0,
           width: '100%',
-          overflowY: 'auto',
-          overflowX: 'hidden',
+          maxWidth: '100vw', // Critical for mobile
+          overflowX: 'hidden', // Prevents horizontal scrolling
           position: 'relative',
-          backgroundColor: theme.palette.background.default,
+          '& *': {
+            maxWidth: '100%', // Ensures no element can overflow
+          }
         }}
       >
+        {/* Mobile App Bar with Toggle Button */}
         {isMobile && (
-          <Toolbar 
-            sx={{ 
-              position: 'sticky',
-              top: 0,
-              zIndex: theme.zIndex.appBar,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-              boxShadow: 1,
-              minHeight: '56px !important',
-              width: '100%',
-            }}
-          >
+          <Toolbar sx={{ 
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          }}>
             <IconButton
-              edge="start"
               color="inherit"
-              aria-label="menu"
+              aria-label="open drawer"
+              edge="start"
               onClick={handleDrawerToggle}
               sx={{ mr: 2 }}
             >
@@ -80,19 +82,9 @@ const Dashboard = ({ children }) => {
           </Toolbar>
         )}
 
-        <Box 
-          sx={{ 
-            flex: 1,
-            p: isMobile ? 2 : 3,
-            width: '100%',
-            maxWidth: '100%',
-            overflow: 'hidden',
-            '& > *': {
-              maxWidth: '100%',
-            }
-          }}
-        >
-          {children}
+        {/* Insights Section */}
+        <Box sx={{ p: isMobile ? 2 : 3 }}>
+          <Insights />
         </Box>
       </Box>
     </Box>
