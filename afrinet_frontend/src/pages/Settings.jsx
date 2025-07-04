@@ -195,7 +195,6 @@ const Settings = () => {
                   p: 2,
                   textAlign: 'center',
                   color: '#888',
-                  background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
                 }}
               >
                 <UploadFileIcon fontSize="large" />
