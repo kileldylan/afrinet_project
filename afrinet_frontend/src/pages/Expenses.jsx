@@ -1,18 +1,7 @@
 import React from 'react';
-import {
-  Box,
-  Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Button,
-} from '@mui/material';
-import Sidebar from './Sidebar'; // Assuming Sidebar.jsx is available
+import { Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { Add } from '@mui/icons-material';
+import PageLayout from './PageLayout';
 
 const Expenses = () => {
   const expensesData = [
@@ -21,83 +10,63 @@ const Expenses = () => {
     { date: '28/06/2025', description: 'Staff Salaries', amount: 'Ksh 50,000.00', category: 'Salaries', status: 'Paid' },
     { date: '25/06/2025', description: 'Equipment Purchase', amount: 'Ksh 20,000.00', category: 'Equipment', status: 'Pending' },
   ];
-  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-  
   return (
-    <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar 
-        mobileOpen={mobileOpen} 
-        handleDrawerToggle={handleDrawerToggle} 
-        isMobile={isMobile}
-      />
-      <Box
-        component="main"
-        sx={{
-            flexGrow: 1,
-            p: 0,
-            width: '100%',
-            maxWidth: '100vw', // Critical for mobile
-            overflowX: 'hidden', // Prevents horizontal scrolling
-            position: 'relative',
-            '& *': {
-              maxWidth: '100%', // Ensures no element can overflow
-            }
-          }}
-      >
-        <Typography variant="h5" fontWeight="bold" mb={3} color="text.primary">
-          Expenses
-        </Typography>
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Button variant="outlined" color="primary" sx={{ mr: 1 }}>All (4)</Button>
-            <Button variant="outlined" color="primary" sx={{ mr: 1 }}>Paid (2)</Button>
-            <Button variant="outlined" color="primary">Pending (2)</Button>
-          </Box>
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<Add />}
-            sx={{ backgroundColor: '#ff9800', '&:hover': { backgroundColor: '#f57c00' } }}
-          >
-            Record Expense
-          </Button>
+    <PageLayout 
+      title="Expenses" 
+      description="Track and manage your business expenses"
+    >
+      <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <Button variant="outlined" color="primary">All (4)</Button>
+          <Button variant="outlined" color="primary">Paid (2)</Button>
+          <Button variant="outlined" color="primary">Pending (2)</Button>
         </Box>
-        <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Description</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Category</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {expensesData.map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{row.date}</TableCell>
-                    <TableCell>{row.description}</TableCell>
-                    <TableCell>{row.amount}</TableCell>
-                    <TableCell>{row.category}</TableCell>
-                    <TableCell>
-                      <span style={{ color: row.status === 'Paid' ? '#4caf50' : '#f44336' }}>
-                        {row.status}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+        <Button
+          variant="contained"
+          color="warning"
+          startIcon={<Add />}
+          sx={{ 
+            backgroundColor: '#ff9800', 
+            '&:hover': { backgroundColor: '#f57c00' },
+            whiteSpace: 'nowrap'
+          }}
+        >
+          Record Expense
+        </Button>
       </Box>
-    </Box>
+
+      <Paper elevation={3} sx={{ p: 2, borderRadius: 2, overflow: 'hidden' }}>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 650 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Status</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {expensesData.map((row, index) => (
+                <TableRow key={index}>
+                  <TableCell>{row.date}</TableCell>
+                  <TableCell>{row.description}</TableCell>
+                  <TableCell>{row.amount}</TableCell>
+                  <TableCell>{row.category}</TableCell>
+                  <TableCell>
+                    <span style={{ color: row.status === 'Paid' ? '#4caf50' : '#f44336' }}>
+                      {row.status}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </PageLayout>
   );
 };
 

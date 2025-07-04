@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
 import {
   Box,
   Typography,
@@ -29,6 +30,7 @@ import {
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
 import Sidebar from './Sidebar';
+import PageLayout from './PageLayout';
 
 // Custom color input component
 const ColorInput = ({ value, onChange, ...props }) => (
@@ -152,30 +154,10 @@ const Settings = () => {
   };
 
   return (
-    <Box sx={{display: 'flex',
-              fontFamily: 'Roboto,sans-serif',
-              minHeight: '100vh',
-              }}>
-      {/* Sidebar */}
-      <Sidebar 
-        mobileOpen={mobileOpen} 
-        handleDrawerToggle={handleDrawerToggle} 
-        isMobile={isMobile}
-      />
-            
-      {/* Main Content */}
-      <Box component="main"        
-          sx={{
-          flexGrow: 1,
-          p: 0,
-          width: '100%',
-          maxWidth: '100vw', // Critical for mobile
-          overflowX: 'hidden', // Prevents horizontal scrolling
-          position: 'relative',
-          '& *': {
-            maxWidth: '100%', // Ensures no element can overflow
-          }
-        }}>
+    <PageLayout 
+      title="Users" 
+      description="All users including hotspot and PPPoE users"
+    >
         <Typography variant="h5" fontWeight="bold" color="text.secondary" mb={3}>
           AFRINET
         </Typography>
@@ -830,8 +812,7 @@ const Settings = () => {
             © 2025 Certified Billings All Rights Reserved.
           </Typography>
         </Box>
-      </Box>
-    </Box>
+    </PageLayout>
   );
 };
 

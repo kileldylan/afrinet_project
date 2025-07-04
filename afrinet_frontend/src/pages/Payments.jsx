@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -14,11 +14,11 @@ import {
   Tab,
   AppBar,
 } from '@mui/material';
-import Sidebar from './Sidebar'; // Assuming Sidebar.jsx is available
 import { Add } from '@mui/icons-material';
+import PageLayout from './PageLayout';
 
 const Payments = () => {
-  const [tabValue, setTabValue] = React.useState(0);
+  const [tabValue, setTabValue] = useState(0);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -34,84 +34,92 @@ const Payments = () => {
     { user: 'A33', phone: '075440468', receiptNo: 'TG219DRY3F', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 10:43', disbursement: 'Direct' },
     { user: 'A213', phone: '071389437', receiptNo: 'TG19USUGX', amount: 'Ksh 10.00', checked: 'Yes', paidAt: '01/07/2025 21:41', disbursement: 'Direct' },
   ];
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
 
   return (
-    <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar 
-        mobileOpen={mobileOpen} 
-        handleDrawerToggle={handleDrawerToggle} 
-        isMobile={isMobile}
-      />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 0,
-          width: '100%',
-          maxWidth: '100vw', // Critical for mobile
-          overflowX: 'hidden', // Prevents horizontal scrolling
-          position: 'relative',
-          '& *': {
-            maxWidth: '100%', // Ensures no element can overflow
-          }
+    <PageLayout 
+      title="Payments" 
+      description="View and manage payment records"
+    >
+      <AppBar 
+        position="static" 
+        color="default" 
+        sx={{ 
+          mb: 3, 
+          borderRadius: 1,
+          boxShadow: 'none',
+          backgroundColor: 'transparent',
+          backgroundImage: 'none'
         }}
       >
-        <Typography variant="h5" fontWeight="bold" mb={3} color="text.primary">
-          Payments
-        </Typography>
-        <AppBar position="static" color="default" sx={{ mb: 3, borderRadius: 1 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} textColor="primary" indicatorColor="primary">
-            <Tab label="Checked payments" />
-            <Tab label="Unchecked payments" />
-          </Tabs>
-        </AppBar>
-        <Paper elevation={3} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>User</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell>Receipt No.</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Checked</TableCell>
-                  <TableCell>Paid At</TableCell>
-                  <TableCell>Disbursement</TableCell>
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange} 
+          textColor="primary" 
+          indicatorColor="primary"
+          sx={{
+            '& .MuiTabs-flexContainer': {
+              gap: 1,
+            },
+            '& .MuiTab-root': {
+              minHeight: 48,
+              borderRadius: 1,
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              }
+            }
+          }}
+        >
+          <Tab label="Checked payments" />
+          <Tab label="Unchecked payments" />
+        </Tabs>
+      </AppBar>
+
+      <Paper elevation={3} sx={{ p: 2, mb: 3, borderRadius: 2, overflow: 'hidden' }}>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 750 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>User</TableCell>
+                <TableCell>Phone</TableCell>
+                <TableCell>Receipt No.</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Checked</TableCell>
+                <TableCell>Paid At</TableCell>
+                <TableCell>Disbursement</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paymentsData.map((row, index) => (
+                <TableRow key={index}>
+                  <TableCell>{row.user}</TableCell>
+                  <TableCell>{row.phone}</TableCell>
+                  <TableCell>{row.receiptNo}</TableCell>
+                  <TableCell>{row.amount}</TableCell>
+                  <TableCell>{row.checked}</TableCell>
+                  <TableCell>{row.paidAt}</TableCell>
+                  <TableCell>{row.disbursement}</TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {paymentsData.map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{row.user}</TableCell>
-                    <TableCell>{row.phone}</TableCell>
-                    <TableCell>{row.receiptNo}</TableCell>
-                    <TableCell>{row.amount}</TableCell>
-                    <TableCell>{row.checked}</TableCell>
-                    <TableCell>{row.paidAt}</TableCell>
-                    <TableCell>{row.disbursement}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-        <Box sx={{ textAlign: 'right' }}>
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<Add />}
-            sx={{ backgroundColor: '#ff9800', '&:hover': { backgroundColor: '#f57c00' } }}
-          >
-            Record Payment
-          </Button>
-        </Box>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      <Box sx={{ textAlign: 'right' }}>
+        <Button
+          variant="contained"
+          color="warning"
+          startIcon={<Add />}
+          sx={{ 
+            backgroundColor: '#ff9800', 
+            '&:hover': { backgroundColor: '#f57c00' },
+            whiteSpace: 'nowrap'
+          }}
+        >
+          Record Payment
+        </Button>
       </Box>
-    </Box>
+    </PageLayout>
   );
 };
 
