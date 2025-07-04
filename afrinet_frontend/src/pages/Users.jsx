@@ -111,12 +111,19 @@ const Users = () => {
     try {
       setLoading(true);
       const response = await axiosInstance.post('/api/users/', formData);
-      showSnackbar('User created successfully', 'success');
-      fetchUsers();
-      handleCloseModal();
+      
+      // Add this check:
+      if (response.status === 201) {
+        showSnackbar('User created successfully', 'success');
+        fetchUsers();  // Refresh the user list
+        handleCloseModal();  // Close the modal
+      }
     } catch (err) {
       console.error('Error creating user:', err);
-      showSnackbar(err.response?.data?.message || 'Failed to create user', 'error');
+      showSnackbar(
+        err.response?.data?.message || 'Failed to create user', 
+        'error'
+      );
     } finally {
       setLoading(false);
     }
