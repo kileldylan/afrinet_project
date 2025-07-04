@@ -22,17 +22,10 @@ const ActiveUsers = () => {
   ];
 
   return (
-    <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
-      <Sidebar />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-          minHeight: '100vh',
-        }}
-      >
+    <PageLayout 
+      title="ACTIVE USERS" 
+      disablePadding // Optional prop to remove default padding if needed
+    >
         <Typography variant="h5" fontWeight="bold" mb={3} color="text.primary">
           Active Users
         </Typography>
@@ -76,8 +69,7 @@ const ActiveUsers = () => {
             </Table>
           </TableContainer>
         </Paper>
-      </Box>
-    </Box>
+     </PageLayout>
   );
 };
 

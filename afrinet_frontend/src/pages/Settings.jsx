@@ -174,7 +174,7 @@ const Settings = () => {
           >
             <Tab icon={<SettingsIcon />} label="General" />
             <Tab icon={<PaymentIcon />} label="Payments" />
-            <Tab icon={<WifiIcon />} label="PPPoE" />
+            <Tab icon={<WifiIcon />} label="PPoE" />
             <Tab icon={<HotspotIcon />} label="Hotspot" />
             <Tab icon={<SmsIcon />} label="SMS Gateway" />
             <Tab icon={<NotificationsIcon />} label="Notifications" />
