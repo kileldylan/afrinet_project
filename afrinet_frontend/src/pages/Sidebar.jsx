@@ -8,7 +8,6 @@ import {
   IconButton,
   Toolbar,
   useTheme,
-  useMediaQuery,
   Box,
 } from '@mui/material';
 import {
@@ -22,14 +21,13 @@ import {
   MoneyOff,
   Message,
   Devices,
-  Menu,
   ChevronLeft,
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 
 const Sidebar = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
   const theme = useTheme();
-  const drawerWidth = 200;
+  const drawerWidth = 240;
 
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/' },
@@ -45,26 +43,47 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
   ];
 
   const drawerContent = (
-    <Box>
-      {/* Close button for mobile */}
+    <Box sx={{ 
+      width: drawerWidth,
+      height: '100%',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
       {isMobile && (
-        <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Toolbar sx={{ 
+          display: 'flex',
+          justifyContent: 'flex-end',
+          minHeight: '56px !important',
+          flexShrink: 0
+        }}>
           <IconButton onClick={handleDrawerToggle}>
             <ChevronLeft />
           </IconButton>
         </Toolbar>
       )}
-      <List>
+      <List sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', py: 0 }}>
         {menuItems.map((item) => (
           <ListItem
             button
             key={item.text}
             component={Link}
             to={item.path}
-            sx={{ color: 'black' }}
-            onClick={isMobile ? handleDrawerToggle : undefined} // Close drawer on mobile when item is clicked
+            sx={{ 
+              color: 'black',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              },
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+            onClick={isMobile ? handleDrawerToggle : undefined}
           >
-            <ListItemIcon sx={{ color: 'black' }}>{item.icon}</ListItemIcon>
+            <ListItemIcon sx={{ color: 'black', minWidth: '40px' }}>
+              {item.icon}
+            </ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItem>
         ))}
@@ -75,42 +94,27 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
   return (
     <Box
       component="nav"
-      sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
-      aria-label="sidebar"
+      sx={{ 
+        width: { md: drawerWidth }, 
+        flexShrink: { md: 0 },
+      }}
     >
-      {/* Mobile/Tablet Drawer */}
       <Drawer
-        variant="temporary"
+        variant={isMobile ? "temporary" : "permanent"}
         open={mobileOpen}
         onClose={handleDrawerToggle}
         ModalProps={{
-          keepMounted: true, // Better open performance on mobile
+          keepMounted: true,
         }}
         sx={{
-          display: { xs: 'block', md: 'none' },
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
             background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+            overflow: 'hidden',
+            borderRight: isMobile ? 'none' : '1px solid rgba(0, 0, 0, 0.12)',
           },
         }}
-      >
-        {drawerContent}
-      </Drawer>
-
-      {/* Desktop Drawer */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          display: { xs: 'none', md: 'block' },
-          '& .MuiDrawer-paper': {
-            width: drawerWidth,
-            boxSizing: 'border-box',
-            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-            borderRight: 'none',
-          },
-        }}
-        open
       >
         {drawerContent}
       </Drawer>

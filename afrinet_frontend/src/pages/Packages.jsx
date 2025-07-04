@@ -28,6 +28,7 @@ import {
 import Sidebar from './Sidebar';
 import { Add } from '@mui/icons-material';
 import axiosInstance from '../api/axios';
+import MobileConstraint from './MobileConstraint';
 
 const Packages = () => {
   const [packages, setPackages] = useState([]);
@@ -121,6 +122,7 @@ const Packages = () => {
   return (
     <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', backgroundColor: '#f5f5f5' }}>
       <Sidebar />
+      <MobileConstraint>
       <Box
         component="main"
         sx={{
@@ -294,6 +296,7 @@ const Packages = () => {
           </Alert>
         </Snackbar>
       </Box>
+      </MobileConstraint>
     </Box>
   );
 };

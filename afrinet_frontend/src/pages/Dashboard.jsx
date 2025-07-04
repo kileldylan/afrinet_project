@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Box, 
-  Grid, 
   Typography, 
-  Paper, 
   IconButton,
   useTheme,
   useMediaQuery,
@@ -12,9 +10,8 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Sidebar from './Sidebar';
-import Insights from './InsightCard';
 
-const Dashboard = () => {
+const Dashboard = ({ children }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,50 +21,54 @@ const Dashboard = () => {
   };
 
   return (
-      <Box
-        sx={{
-          display: 'flex',
-          fontFamily: 'Roboto, sans-serif',
-          height: '100vh',
-          width: '100vw',
-          maxWidth: '100%',
-          overflowX: 'hidden',
-        }}
-      >
+    <Box sx={{ 
+      display: 'flex',
+      width: '100vw',
+      height: '100vh',
+      overflow: 'hidden'
+    }}>
       <CssBaseline />
-      {/* Sidebar - Always rendered but conditionally shown based on screen size */}
+      
       <Sidebar 
         mobileOpen={mobileOpen} 
         handleDrawerToggle={handleDrawerToggle} 
         isMobile={isMobile}
       />
       
-      {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 0,
-          background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-          minHeight: '100vh',
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
           width: '100%',
-          overflow: 'auto',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          position: 'relative',
+          backgroundColor: theme.palette.background.default,
         }}
       >
-        {/* Mobile App Bar with Toggle Button */}
         {isMobile && (
-          <Toolbar sx={{ 
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            backgroundColor: 'rgba(255, 255, 255, 0.7)',
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          }}>
+          <Toolbar 
+            sx={{ 
+              position: 'sticky',
+              top: 0,
+              zIndex: theme.zIndex.appBar,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: 1,
+              minHeight: '56px !important',
+              width: '100%',
+            }}
+          >
             <IconButton
-              color="inherit"
-              aria-label="open drawer"
               edge="start"
+              color="inherit"
+              aria-label="menu"
               onClick={handleDrawerToggle}
               sx={{ mr: 2 }}
             >
@@ -79,9 +80,19 @@ const Dashboard = () => {
           </Toolbar>
         )}
 
-        {/* Insights Section */}
-        <Box sx={{ p: isMobile ? 2 : 3 }}>
-          <Insights />
+        <Box 
+          sx={{ 
+            flex: 1,
+            p: isMobile ? 2 : 3,
+            width: '100%',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            '& > *': {
+              maxWidth: '100%',
+            }
+          }}
+        >
+          {children}
         </Box>
       </Box>
     </Box>
