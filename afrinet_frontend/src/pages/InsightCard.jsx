@@ -28,6 +28,7 @@ import {
   Tooltip as ChartTooltip,
   Legend,
 } from 'chart.js';
+import PageLayout from './PageLayout';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, ChartTooltip, Legend);
@@ -155,176 +156,160 @@ const InsightCard = () => {
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      fontFamily: 'Roboto, sans-serif', 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-    }}>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-        }}
-      >
-        <Typography variant="h4" fontWeight="bold" color='text.primary'mb={2}>
-          AFRINET
-        </Typography>
-        <Typography variant="h6" color="text.secondary" mb={4}>
-          Good morning, Afrinet
-        </Typography>
-
-        {/* Stats Cards - Single Row */}
-        <Grid container spacing={2} mb={4}>
-          {stats.map((stat, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
-              <Tooltip title={stat.tooltip} arrow>
-                <Card sx={{ 
-                  p: 2, 
-                  height: '100%',
-                  background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-                  borderRadius: 2,
-                  boxShadow: 4,
-                }}>
-                  <Box display="flex" alignItems="center">
-                    <Checkbox />
-                    <Box ml={1}>
-                      <Typography variant="body1" color="text.primary">{stat.title}</Typography>
-                      <Typography variant="h6" fontWeight="bold" color="text.primary">
-                        {stat.value}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {stat.description}
-                      </Typography>
-                    </Box>
+    <PageLayout 
+      title="AFRINET" 
+      description="Good morning, Afrinet"
+      disablePadding // Optional prop to remove default padding if needed
+    >
+      {/* Stats Cards - Single Row */}
+      <Grid container spacing={2} mb={4}>
+        {stats.map((stat, index) => (
+          <Grid item xs={12} sm={6} md={4} key={index}>
+            <Tooltip title={stat.tooltip} arrow>
+              <Card sx={{ 
+                p: 2, 
+                height: '100%',
+                background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+                borderRadius: 2,
+                boxShadow: 4,
+              }}>
+                <Box display="flex" alignItems="center">
+                  <Checkbox />
+                  <Box ml={1}>
+                    <Typography variant="body1" color="text.primary">{stat.title}</Typography>
+                    <Typography variant="h6" fontWeight="bold" color="text.primary">
+                      {stat.value}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {stat.description}
+                    </Typography>
                   </Box>
-                </Card>
-              </Tooltip>
-            </Grid>
-          ))}
+                </Box>
+              </Card>
+            </Tooltip>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* Charts - Two per row */}
+      <Grid container spacing={3}>
+        {/* Payments Chart */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ 
+            p: 2, 
+            height: 300,
+            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+            borderRadius: 2,
+            boxShadow: 4,
+          }}>
+            <Typography variant="h6" mb={1}>Payments</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Payments and expenses trend
+            </Typography>
+            <Box sx={{ height: 'calc(100% - 60px)' }}>
+              <Bar data={paymentData} options={chartOptions} />
+            </Box>
+          </Card>
         </Grid>
 
-        <Divider sx={{ my: 3 }} />
-
-        {/* Charts - Two per row */}
-        <Grid container spacing={3}>
-          {/* Payments Chart */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ 
-              p: 2, 
-              height: 300,
-              background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-              borderRadius: 2,
-              boxShadow: 4,
-            }}>
-              <Typography variant="h6" mb={1}>Payments</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Payments and expenses trend
-              </Typography>
-              <Box sx={{ height: 'calc(100% - 60px)' }}>
-                <Bar data={paymentData} options={chartOptions} />
-              </Box>
-            </Card>
-          </Grid>
-
-          {/* Active Users Chart */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ 
-              p: 2, 
-              height: 300,
-              background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-              borderRadius: 2,
-              boxShadow: 4,
-            }}>
-              <Typography variant="h6" mb={1}>Active Users</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Average (10) users, Peak (23) users this week
-              </Typography>
-              <Box sx={{ height: 'calc(100% - 60px)' }}>
-                <Line data={usersData} options={chartOptions} />
-              </Box>
-            </Card>
-          </Grid>
-
-          {/* Expense Status Chart */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ 
-              p: 2, 
-              height: 300,
-              background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-              borderRadius: 2,
-              boxShadow: 4,
-            }}>
-              <Typography variant="h6" mb={1}>Expense Status</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Paid vs pending expenses
-              </Typography>
-              <Box sx={{ height: 'calc(100% - 60px)' }}>
-                <Pie data={pieData} options={chartOptions} />
-              </Box>
-            </Card>
-          </Grid>
-
-          {/* Revenue Growth Chart */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ 
-              p: 2, 
-              height: 300,
-              background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-              borderRadius: 2,
-              boxShadow: 4,
-            }}>
-              <Typography variant="h6" mb={1}>Revenue Growth</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Monthly revenue growth percentage
-              </Typography>
-              <Box sx={{ height: 'calc(100% - 60px)' }}>
-                <Bar data={barDataGrowth} options={chartOptions} />
-              </Box>
-            </Card>
-          </Grid>
-
-          {/* User Retention Chart */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ 
-              p: 2, 
-              height: 300,
-              background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-              borderRadius: 2,
-              boxShadow: 4,
-            }}>
-              <Typography variant="h6" mb={1}>User Retention</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Retained vs churned users
-              </Typography>
-              <Box sx={{ height: 'calc(100% - 60px)' }}>
-                <Pie data={pieDataRetention} options={chartOptions} />
-              </Box>
-            </Card>
-          </Grid>
-
-          {/* Network Uptime Chart */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ 
-              p: 2, 
-              height: 300,
-              background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-              borderRadius: 2,
-              boxShadow: 4,
-            }}>
-              <Typography variant="h6" mb={1}>Network Uptime</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Weekly network uptime percentage
-              </Typography>
-              <Box sx={{ height: 'calc(100% - 60px)' }}>
-                <Line data={lineDataUptime} options={chartOptions} />
-              </Box>
-            </Card>
-          </Grid>
+        {/* Active Users Chart */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ 
+            p: 2, 
+            height: 300,
+            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+            borderRadius: 2,
+            boxShadow: 4,
+          }}>
+            <Typography variant="h6" mb={1}>Active Users</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Average (10) users, Peak (23) users this week
+            </Typography>
+            <Box sx={{ height: 'calc(100% - 60px)' }}>
+              <Line data={usersData} options={chartOptions} />
+            </Box>
+          </Card>
         </Grid>
-      </Box>
-    </Box>
+
+        {/* Expense Status Chart */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ 
+            p: 2, 
+            height: 300,
+            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+            borderRadius: 2,
+            boxShadow: 4,
+          }}>
+            <Typography variant="h6" mb={1}>Expense Status</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Paid vs pending expenses
+            </Typography>
+            <Box sx={{ height: 'calc(100% - 60px)' }}>
+              <Pie data={pieData} options={chartOptions} />
+            </Box>
+          </Card>
+        </Grid>
+
+        {/* Revenue Growth Chart */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ 
+            p: 2, 
+            height: 300,
+            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+            borderRadius: 2,
+            boxShadow: 4,
+          }}>
+            <Typography variant="h6" mb={1}>Revenue Growth</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Monthly revenue growth percentage
+            </Typography>
+            <Box sx={{ height: 'calc(100% - 60px)' }}>
+              <Bar data={barDataGrowth} options={chartOptions} />
+            </Box>
+          </Card>
+        </Grid>
+
+        {/* User Retention Chart */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ 
+            p: 2, 
+            height: 300,
+            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+            borderRadius: 2,
+            boxShadow: 4,
+          }}>
+            <Typography variant="h6" mb={1}>User Retention</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Retained vs churned users
+            </Typography>
+            <Box sx={{ height: 'calc(100% - 60px)' }}>
+              <Pie data={pieDataRetention} options={chartOptions} />
+            </Box>
+          </Card>
+        </Grid>
+
+        {/* Network Uptime Chart */}
+        <Grid item xs={12} md={6}>
+          <Card sx={{ 
+            p: 2, 
+            height: 300,
+            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+            borderRadius: 2,
+            boxShadow: 4,
+          }}>
+            <Typography variant="h6" mb={1}>Network Uptime</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Weekly network uptime percentage
+            </Typography>
+            <Box sx={{ height: 'calc(100% - 60px)' }}>
+              <Line data={lineDataUptime} options={chartOptions} />
+            </Box>
+          </Card>
+        </Grid>
+      </Grid>
+    </PageLayout>
   );
 };
 
