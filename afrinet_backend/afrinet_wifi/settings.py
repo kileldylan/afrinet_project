@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security settings
 SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')
 DEBUG = False
-ALLOWED_HOSTS = ['*', 'https://afrinet-project.onrender.com']  # You'll replace this with your Render URL after deployment
+ALLOWED_HOSTS = ['*', 'https://afrinet-project.onrender.com'] 
 
 # Application definition
 INSTALLED_APPS = [

@@ -6,11 +6,13 @@ from .views import (
     MpesaAuthTestView,
     MpesaSTKTestView,
     verify_config,
-    AllActiveSessionsView
+    AllActiveSessionsView,
+    UserListAPIView
 )
 
 urlpatterns = [
     path('packages/', PackageListView.as_view(), name='package-list'),
+    path('users/', UserListAPIView.as_view(), name='users'),
     path('initiate-payment/', InitiatePaymentView.as_view(), name='initiate-payment'),
     path('sessions/', AllActiveSessionsView.as_view(), name='all_active_sessions'),
     path('sessions/<str:phone_number>/', UserSessionView.as_view(), name='user-session'),
