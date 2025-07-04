@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    PackageListView,
+    PackageListCreateView,
     InitiatePaymentView,
     UserSessionView,
     MpesaAuthTestView,
@@ -11,7 +11,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path('packages/', PackageListView.as_view(), name='package-list'),
+    path('packages/', PackageListCreateView.as_view(), name='package-list'),
     path('users/', UserListAPIView.as_view(), name='users'),
     path('initiate-payment/', InitiatePaymentView.as_view(), name='initiate-payment'),
     path('sessions/', AllActiveSessionsView.as_view(), name='all_active_sessions'),

@@ -12,13 +12,25 @@ from django.conf import settings
 import base64
 from datetime import datetime
 import requests
-
+from rest_framework.permissions import IsAuthenticated
 logger = logging.getLogger(__name__)
 
-class PackageListView(generics.ListAPIView):
-    """API endpoint that lists all available packages"""
-    queryset = Package.objects.all().order_by('price')
+# views.py
+from rest_framework import generics, status
+from rest_framework.response import Response
+from .models import Package
+from .serializers import PackageSerializer
+
+class PackageListCreateView(generics.ListCreateAPIView):
+    queryset = Package.objects.all()
     serializer_class = PackageSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserListAPIView(generics.ListAPIView):
     serializer_class = UserSerializer
