@@ -24,7 +24,16 @@ const Dashboard = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', fontFamily: 'Roboto, sans-serif', height: '100vh', width: '100%' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          fontFamily: 'Roboto, sans-serif',
+          height: '100vh',
+          width: '100vw',
+          maxWidth: '100%',
+          overflowX: 'hidden',
+        }}
+      >
       <CssBaseline />
       {/* Sidebar - Always rendered but conditionally shown based on screen size */}
       <Sidebar 
