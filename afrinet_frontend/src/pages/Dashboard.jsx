@@ -5,10 +5,7 @@ import Insights from './InsightCard';
 
 const Dashboard = () => {
   return (
-    <PageLayout 
-      title="Dashboard" 
-      description="Overview of your network operations"
-    >
+    <PageLayout>
       <Insights />
     </PageLayout>
   );
