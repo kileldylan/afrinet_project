@@ -1,5 +1,4 @@
-from rest_framework import generics, status
-from rest_framework import filters
+from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Package, User, Payment, Session
@@ -32,7 +31,7 @@ class PackageListCreateView(generics.ListCreateAPIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class UserListAPIView(generics.ListAPIView):
+class UserListAPIView(generics.ListCreateAPIView):  # Changed from ListAPIView to ListCreateAPIView
     serializer_class = UserSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'phone']
