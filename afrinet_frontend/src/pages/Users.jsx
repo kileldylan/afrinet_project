@@ -129,9 +129,14 @@ const Users = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-          minHeight: '100vh',
+          p: 0,
+          width: '100%',
+          maxWidth: '100vw', // Critical for mobile
+          overflowX: 'hidden', // Prevents horizontal scrolling
+          position: 'relative',
+          '& *': {
+            maxWidth: '100%', // Ensures no element can overflow
+          }
         }}
       >
         <Typography variant="h5" fontWeight="bold" mb={3} color="text.primary">
