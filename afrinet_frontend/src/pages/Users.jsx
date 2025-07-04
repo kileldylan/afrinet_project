@@ -13,6 +13,15 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
 import { CloudUpload, PersonAdd } from '@mui/icons-material';
 import axiosInstance from '../api/axios';
@@ -28,38 +37,91 @@ const Users = () => {
     message: '',
     severity: 'success',
   });
+  const [openModal, setOpenModal] = useState(false);
+  const [formData, setFormData] = useState({
+    username: '',
+    phone: '',
+    email: '',
+    password: '',
+    user_type: 'hotspot',
+    package_id: '',
+    status: 'active',
+  });
 
   // Fetch users from API
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const response = await axiosInstance.get('/api/users/', {
-          params: { filter }
-        });
-        
-        // Ensure response.data is an array
-        const userData = Array.isArray(response.data) ? response.data : [];
-        setUsers(userData);
-        
-      } catch (err) {
-        console.error('Error fetching users:', err);
-        setError(err.response?.data?.message || 'Failed to fetch users');
-        setSnackbar({
-          open: true,
-          message: 'Failed to fetch users',
-          severity: 'error'
-        });
-        setUsers([]); // Reset to empty array on error
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUsers();
   }, [filter]);
 
-  // Safe filtering functions
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get('/api/users/', {
+        params: { filter }
+      });
+      setUsers(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(err.response?.data?.message || 'Failed to fetch users');
+      showSnackbar('Failed to fetch users', 'error');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showSnackbar = (message, severity) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleOpenModal = () => {
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setFormData({
+      username: '',
+      phone: '',
+      email: '',
+      password: '',
+      user_type: 'hotspot',
+      package_id: '',
+      status: 'active',
+    });
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.post('/api/users/', formData);
+      showSnackbar('User created successfully', 'success');
+      fetchUsers();
+      handleCloseModal();
+    } catch (err) {
+      console.error('Error creating user:', err);
+      showSnackbar(err.response?.data?.message || 'Failed to create user', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getFilteredCount = (type) => {
     if (!Array.isArray(users)) return 0;
     return users.filter(u => {
@@ -68,28 +130,6 @@ const Users = () => {
       if (type === 'paused') return u.status === 'paused';
       return true;
     }).length;
-  };
-
-  const handleCreateUser = async () => {
-    try {
-      // Implement create user logic using axiosInstance
-      const response = await axiosInstance.post('/api/users/', {
-        // Your user creation data here
-      });
-      setSnackbar({
-        open: true,
-        message: 'User created successfully',
-        severity: 'success'
-      });
-      // Refresh users list
-      fetchUsers();
-    } catch (err) {
-      setSnackbar({
-        open: true,
-        message: err.response?.data?.message || 'Failed to create user',
-        severity: 'error'
-      });
-    }
   };
 
   const handleImportUsers = async (file) => {
@@ -102,24 +142,11 @@ const Users = () => {
           'Content-Type': 'multipart/form-data'
         }
       });
-      setSnackbar({
-        open: true,
-        message: 'Users imported successfully',
-        severity: 'success'
-      });
-      // Refresh users list
+      showSnackbar('Users imported successfully', 'success');
       fetchUsers();
     } catch (err) {
-      setSnackbar({
-        open: true,
-        message: err.response?.data?.message || 'Failed to import users',
-        severity: 'error'
-      });
+      showSnackbar(err.response?.data?.message || 'Failed to import users', 'error');
     }
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
   };
 
   return (
@@ -202,7 +229,7 @@ const Users = () => {
               '&:hover': { backgroundColor: '#f57c00' },
               whiteSpace: 'nowrap'
             }}
-            onClick={handleCreateUser}
+            onClick={handleOpenModal}
             size="small"
           >
             Create User
@@ -270,6 +297,105 @@ const Users = () => {
           </TableContainer>
         )}
       </Paper>
+
+      {/* Create User Modal */}
+      <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+        <DialogTitle>Create New User</DialogTitle>
+        <DialogContent>
+          <TextField
+            margin="normal"
+            name="username"
+            label="Username"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={formData.username}
+            onChange={handleInputChange}
+            required
+          />
+          <TextField
+            margin="normal"
+            name="phone"
+            label="Phone Number"
+            type="tel"
+            fullWidth
+            variant="outlined"
+            value={formData.phone}
+            onChange={handleInputChange}
+          />
+          <TextField
+            margin="normal"
+            name="email"
+            label="Email"
+            type="email"
+            fullWidth
+            variant="outlined"
+            value={formData.email}
+            onChange={handleInputChange}
+          />
+          <TextField
+            margin="normal"
+            name="password"
+            label="Password"
+            type="password"
+            fullWidth
+            variant="outlined"
+            value={formData.password}
+            onChange={handleInputChange}
+            required
+          />
+          <FormControl fullWidth margin="normal">
+            <InputLabel>User Type</InputLabel>
+            <Select
+              name="user_type"
+              value={formData.user_type}
+              label="User Type"
+              onChange={handleInputChange}
+              required
+            >
+              <MenuItem value="hotspot">Hotspot</MenuItem>
+              <MenuItem value="pppoe">PPPoE</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            margin="normal"
+            name="package_id"
+            label="Package ID"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={formData.package_id}
+            onChange={handleInputChange}
+          />
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Status</InputLabel>
+            <Select
+              name="status"
+              value={formData.status}
+              label="Status"
+              onChange={handleInputChange}
+              required
+            >
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="paused">Paused</MenuItem>
+              <MenuItem value="disabled">Disabled</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseModal} color="primary">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreateUser} 
+            color="primary" 
+            variant="contained" 
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar for notifications */}
       <Snackbar

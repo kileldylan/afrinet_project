@@ -155,8 +155,7 @@ const Settings = () => {
 
   return (
     <PageLayout 
-      title="Users" 
-      description="All users including hotspot and PPPoE users"
+      title="Settings" 
     >
         <Typography variant="h5" fontWeight="bold" color="text.secondary" mb={3}>
           AFRINET

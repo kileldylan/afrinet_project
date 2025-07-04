@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Active_Users from './pages/Active_Users';
 import AdminDashboard from './pages/admin_dashboard';
 import Payments from './pages/Payments';
 import Packages from './pages/Packages';
