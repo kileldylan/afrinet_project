@@ -11,8 +11,8 @@ import {
   TableRow,
   Button,
 } from '@mui/material';
-import Sidebar from './Sidebar'; // Assuming Sidebar.jsx is available
 import { PersonAdd } from '@mui/icons-material';
+import PageLayout from './PageLayout';
 
 const ActiveUsers = () => {
   const activeUsersData = [
