@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -13,107 +13,221 @@ import {
   Tabs,
   Tab,
   AppBar,
+  CircularProgress,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { Add, CheckCircle, Cancel, HourglassEmpty } from '@mui/icons-material';
+import axiosInstance from '../api/axios';
 import PageLayout from './PageLayout';
 
 const Payments = () => {
   const [tabValue, setTabValue] = useState(0);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [openModal, setOpenModal] = useState(false);
+  const [formData, setFormData] = useState({
+    phone_number: '',
+    amount: '',
+    package_id: '',
+  });
+
+  // Fetch payments based on tab selection
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        const endpoint = tabValue === 0 ? '/api/payments/?checked=true' : '/api/payments/?checked=false';
+        const response = await axiosInstance.get(endpoint);
+        setPayments(response.data);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to fetch payments');
+        console.error('Payment fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, [tabValue]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  const paymentsData = [
-    { user: 'A47', phone: '0740761455', receiptNo: 'TG24A0D4Y', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 13:05', disbursement: 'Direct' },
-    { user: 'A44', phone: '0701831424', receiptNo: 'TG269W5VKE', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 12:39', disbursement: 'Direct' },
-    { user: 'A48', phone: '0703841489', receiptNo: 'TG239SW0AP', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 12:19', disbursement: 'Direct' },
-    { user: 'A271', phone: '0719235952', receiptNo: 'TG229JXS0Y', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 11:22', disbursement: 'Direct' },
-    { user: 'A40', phone: '0706797247', receiptNo: 'TG269JINSG', amount: 'Ksh 30.00', checked: 'Yes', paidAt: '02/07/2025 11:16', disbursement: 'Direct' },
-    { user: 'A253', phone: '0718386174', receiptNo: 'TG289E2ES', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 10:45', disbursement: 'Direct' },
-    { user: 'A33', phone: '075440468', receiptNo: 'TG219DRY3F', amount: 'Ksh 20.00', checked: 'Yes', paidAt: '02/07/2025 10:43', disbursement: 'Direct' },
-    { user: 'A213', phone: '071389437', receiptNo: 'TG19USUGX', amount: 'Ksh 10.00', checked: 'Yes', paidAt: '01/07/2025 21:41', disbursement: 'Direct' },
-  ];
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleSubmitPayment = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.post('/api/initiate-payment/', formData);
+      
+      if (response.data.success) {
+        // Refresh payments list
+        const endpoint = `/api/payments/?checked=${tabValue === 0}`;
+        const updatedPayments = await axiosInstance.get(endpoint);
+        setPayments(updatedPayments.data);
+        
+        // Close modal and reset form
+        setOpenModal(false);
+        setFormData({
+          phone_number: '',
+          amount: '',
+          package_id: '',
+        });
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Payment failed');
+      console.error('Payment submission error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusChip = (status) => {
+    const statusMap = {
+      completed: { icon: <CheckCircle fontSize="small" />, color: 'success' },
+      failed: { icon: <Cancel fontSize="small" />, color: 'error' },
+      pending: { icon: <HourglassEmpty fontSize="small" />, color: 'warning' },
+    };
+
+    return (
+      <Chip
+        icon={statusMap[status]?.icon}
+        label={status}
+        color={statusMap[status]?.color || 'default'}
+        variant="outlined"
+        size="small"
+      />
+    );
+  };
 
   return (
-    <PageLayout 
-      title="Payments" 
-      description="View and manage payment records"
-    >
-      <AppBar 
-        position="static" 
-        color="default" 
-        sx={{ 
-          mb: 3, 
-          borderRadius: 1,
-          boxShadow: 'none',
-          backgroundColor: 'transparent',
-          backgroundImage: 'none'
-        }}
-      >
-        <Tabs 
-          value={tabValue} 
-          onChange={handleTabChange} 
-          textColor="primary" 
-          indicatorColor="primary"
-          sx={{
-            '& .MuiTabs-flexContainer': {
-              gap: 1,
-            },
-            '& .MuiTab-root': {
-              minHeight: 48,
-              borderRadius: 1,
-              '&.Mui-selected': {
-                backgroundColor: 'rgba(0, 0, 0, 0.04)',
-              }
-            }
-          }}
-        >
-          <Tab label="Checked payments" />
-          <Tab label="Unchecked payments" />
+    <PageLayout title="Payments" description="View and manage payment records">
+      {/* Tabs for payment filtering */}
+      <AppBar position="static" color="default" sx={{ mb: 3, borderRadius: 1, boxShadow: 'none' }}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
+          <Tab label="Verified Payments" />
+          <Tab label="Pending Verification" />
         </Tabs>
       </AppBar>
 
-      <Paper elevation={3} sx={{ p: 2, mb: 3, borderRadius: 2, overflow: 'hidden' }}>
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table sx={{ minWidth: 750 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell>User</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Receipt No.</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Checked</TableCell>
-                <TableCell>Paid At</TableCell>
-                <TableCell>Disbursement</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paymentsData.map((row, index) => (
-                <TableRow key={index}>
-                  <TableCell>{row.user}</TableCell>
-                  <TableCell>{row.phone}</TableCell>
-                  <TableCell>{row.receiptNo}</TableCell>
-                  <TableCell>{row.amount}</TableCell>
-                  <TableCell>{row.checked}</TableCell>
-                  <TableCell>{row.paidAt}</TableCell>
-                  <TableCell>{row.disbursement}</TableCell>
+      {/* Payments Table */}
+      {loading ? (
+        <Box display="flex" justifyContent="center" p={4}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Typography color="error">{error}</Typography>
+      ) : (
+        <Paper elevation={3} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>User</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell>Receipt No.</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Paid At</TableCell>
+                  <TableCell>Package</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+              </TableHead>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>{payment.user?.username || 'N/A'}</TableCell>
+                    <TableCell>{payment.phone_number}</TableCell>
+                    <TableCell>{payment.mpesa_receipt || 'Pending'}</TableCell>
+                    <TableCell>Ksh {payment.amount}</TableCell>
+                    <TableCell>{getStatusChip(payment.status)}</TableCell>
+                    <TableCell>
+                      {new Date(payment.created_at).toLocaleString()}
+                    </TableCell>
+                    <TableCell>{payment.package?.name || 'N/A'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
-      <Box sx={{ textAlign: 'right' }}>
+      {/* Record Payment Modal */}
+      <Dialog open={openModal} onClose={() => setOpenModal(false)}>
+        <DialogTitle>Initiate New Payment</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth margin="normal">
+            <TextField
+              label="Phone Number"
+              name="phone_number"
+              value={formData.phone_number}
+              onChange={handleInputChange}
+              required
+            />
+          </FormControl>
+          <FormControl fullWidth margin="normal">
+            <TextField
+              label="Amount"
+              name="amount"
+              type="number"
+              value={formData.amount}
+              onChange={handleInputChange}
+              required
+            />
+          </FormControl>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Package</InputLabel>
+            <Select
+              name="package_id"
+              value={formData.package_id}
+              onChange={handleInputChange}
+              required
+            >
+              <MenuItem value="daily">Daily Package</MenuItem>
+              <MenuItem value="weekly">Weekly Package</MenuItem>
+              <MenuItem value="monthly">Monthly Package</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenModal(false)}>Cancel</Button>
+          <Button 
+            onClick={handleSubmitPayment} 
+            color="primary" 
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Initiate Payment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Record Payment Button */}
+      <Box textAlign="right">
         <Button
           variant="contained"
           color="warning"
           startIcon={<Add />}
+          onClick={() => setOpenModal(true)}
           sx={{ 
             backgroundColor: '#ff9800', 
             '&:hover': { backgroundColor: '#f57c00' },
-            whiteSpace: 'nowrap'
           }}
         >
           Record Payment

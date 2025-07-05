@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const baseURL = 'https://afrinet-project.onrender.com'; // change if deployed
+const baseURL =
+  import.meta.env.MODE === 'development'
+    ? 'http://localhost:8000' // Local Django server
+    : 'https://afrinet-project.onrender.com'; // Deployed URL
 
 const axiosInstance = axios.create({
   baseURL,
