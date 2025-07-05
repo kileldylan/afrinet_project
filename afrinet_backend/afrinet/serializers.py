@@ -21,6 +21,24 @@ class PackageSerializer(serializers.ModelSerializer):
         model = Package
         fields = ['id', 'package_id', 'price', 'duration_value', 'duration_unit', 'speed', 'popular']
 
+class PaymentSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+    package = serializers.StringRelatedField()
+    
+    class Meta:
+        model = Payment
+        fields = [
+            'id',
+            'user',
+            'phone_number',
+            'amount',
+            'mpesa_receipt',
+            'status',
+            'created_at',
+            'package',
+            'is_checked'
+        ]
+        
 class PaymentInitiationSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=15)
     package_id = serializers.CharField(max_length=10)  # Changed to CharField to match Package.package_id

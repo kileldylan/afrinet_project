@@ -2,7 +2,7 @@ from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Package, User, Payment, Session
-from .serializers import PackageSerializer, PaymentInitiationSerializer, UserSerializer
+from .serializers import PaymentSerializer, PackageSerializer, PaymentInitiationSerializer, UserSerializer
 from django.utils import timezone
 from datetime import timedelta
 import logging
@@ -31,6 +31,19 @@ class PackageListCreateView(generics.ListCreateAPIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class PaymentListView(generics.ListAPIView):
+    serializer_class = PaymentSerializer
+
+    def get_queryset(self):
+        queryset = Payment.objects.all().select_related('user', 'package')
+        
+        # Filter by checked status if provided
+        checked = self.request.query_params.get('checked')
+        if checked is not None:
+            queryset = queryset.filter(is_checked=checked.lower() == 'true')
+            
+        return queryset.order_by('-created_at')
+    
 class UserListAPIView(generics.ListCreateAPIView):  # Changed from ListAPIView to ListCreateAPIView
     serializer_class = UserSerializer
     filter_backends = [filters.SearchFilter]
