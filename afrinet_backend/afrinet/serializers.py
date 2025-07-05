@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
     
     package = serializers.StringRelatedField()
-    
+
 class SessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Session
@@ -30,28 +30,30 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'user',
-            'phone_number',
+            'phone',  # Changed from phone_number to phone
             'amount',
             'mpesa_receipt',
             'status',
             'created_at',
             'package',
-            'is_checked'
+            'is_checked',
+            'is_finished',
+            'is_successful',
+            'completed_at',
+            'transaction_id'
         ]
-        
-class PaymentInitiationSerializer(serializers.Serializer):
-    phone_number = serializers.CharField(max_length=15)
-    package_id = serializers.CharField(max_length=10)  # Changed to CharField to match Package.package_id
 
-    def validate_phone_number(self, value):
+class PaymentInitiationSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)  # Changed from phone_number to phone
+    package_id = serializers.CharField(max_length=10)
+
+    def validate_phone(self, value):  # Changed from validate_phone_number
         value = value.strip()
         if not value.startswith(('07', '01', '+254', '254')):
             raise serializers.ValidationError("Invalid phone number format")
         return value
 
     def validate_package_id(self, value):
-        try:
-            Package.objects.get(package_id=value)  # Validate against custom package_id field
-            return value
-        except Package.DoesNotExist:
+        if not Package.objects.filter(package_id=value).exists():
             raise serializers.ValidationError("Invalid package ID")
+        return value
