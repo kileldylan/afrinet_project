@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 def normalize_phone(phone):
-    """Normalize phone number to 254xxxxxxxxx format."""
-    phone = phone.strip()
+    """Safely normalize phone number to 254xxxxxxxxx format."""
+    if not phone:
+        raise ValueError("Phone number cannot be empty")
+    
+    phone = str(phone).strip()
     if phone.startswith("07"):
         return "254" + phone[1:]
     elif phone.startswith("+"):
@@ -40,26 +43,33 @@ def stk_push(request):
 
     try:
         data = json.loads(request.body)
-        logger.info(f"stk_push request: {json.dumps(data, indent=2)}")
-        phone = data.get("phone")
-        if not phone:
-            return JsonResponse({"error": "Phone number required"}, status=400)
-        phone = normalize_phone(phone)        
+        logger.info(f"STK push request received: {data}")
+        
+        # Standardized phone handling - accepts both but prefers 'phone'
+        raw_phone = data.get("phone") or data.get("phone_number")
+        if not raw_phone:
+            return JsonResponse({"success": False, "message": "Phone number is required"}, status=400)
+        
+        try:
+            phone = normalize_phone(raw_phone)
+        except ValueError as e:
+            return JsonResponse({"success": False, "message": str(e)}, status=400)
+
         amount = data.get("amount")
-        account_reference = data.get("account_reference", "WIFI_PAYMENT")
-        transaction_desc = data.get("transaction_desc", "Wifi Package Payment")
-        package_id = data.get("package_id")  # Optional
+        package_id = data.get("package_id")
 
-        if not phone or not amount:
-            logger.error("Missing phone or amount in stk_push request")
-            return JsonResponse({"success": False, "message": "Missing required fields"}, status=400)
+        if not amount:
+            return JsonResponse({"success": False, "message": "Amount is required"}, status=400)
 
-        # Find or create user
+        # Find or create user using standardized phone field
         user, created = User.objects.get_or_create(
             phone=phone,
-            defaults={'created_at': timezone.now()}
+            defaults={
+                'created_at': timezone.now(),
+                'username': f"user{phone[-4:]}",  # Temporary username
+                'user_type': 'hotspot'
+            }
         )
-        logger.info(f"User {'created' if created else 'retrieved'}: {phone}")
 
         # Find package
         package = None
@@ -69,191 +79,121 @@ def stk_push(request):
             package = Package.objects.filter(price=amount).first()
 
         if not package:
-            logger.error(f"No package found for amount {amount} or package_id {package_id}")
-            return JsonResponse({"success": False, "message": "No package found for the specified amount or package ID"}, status=400)
+            return JsonResponse({"success": False, "message": "No matching package found"}, status=400)
 
-        # Update user's package
+        # Update user package if changed
         if user.package != package:
             user.package = package
             user.save()
-            logger.info(f"Updated user package to {package.package_id}")
 
-        # Initiate STK Push
+        # Initiate STK Push - using service's expected parameter name
         response = MpesaService.initiate_stk_push(
-            phone=phone,
+            phone_number=phone,  # Service expects phone_number
             amount=amount,
-            account_reference=account_reference,
-            transaction_desc=transaction_desc
+            account_reference=f"AFRNET{package.package_id}",
+            transaction_desc=f"AfriNet {package.package_id} Package"
         )
-        logger.info(f"MpesaService.initiate_stk_push response: {json.dumps(response, indent=2)}")
 
         if response.get("success"):
-            # Create Payment object with pending status
+            # Create payment using model's phone field
             payment = Payment.objects.create(
                 user=user,
+                phone=phone,  # Model field
                 amount=amount,
-                phone=phone,
                 package=package,
                 transaction_id=response.get("checkout_request_id"),
-                status="pending",
-                is_finished=False,
-                is_successful=False,
-                created_at=timezone.now()
+                status="pending"
             )
-            logger.info(f"Payment created: transaction_id={payment.transaction_id}")
             return JsonResponse({
                 "success": True,
                 "checkout_request_id": payment.transaction_id,
-                "message": "STK Push initiated successfully"
+                "message": "Payment initiated successfully"
             })
-        else:
-            logger.error(f"STK Push failed: {response.get('message')}")
-            return JsonResponse(response, status=400)
+        return JsonResponse(response, status=400)
 
     except json.JSONDecodeError:
-        logger.error("Invalid JSON in stk_push request")
         return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
     except Exception as e:
-        logger.exception(f"Error in stk_push: {str(e)}")
-        return JsonResponse({"success": False, "message": str(e)}, status=500)
+        logger.exception(f"STK push error: {str(e)}")
+        return JsonResponse({"success": False, "message": "Internal server error"}, status=500)
 
 @csrf_exempt
 def callback(request):
-    """Handle M-Pesa STK Push callback and create session."""
+    """Handle M-Pesa STK Push callback."""
     if request.method != "POST":
-        logger.error("Non-POST request to callback endpoint")
         return HttpResponse(status=405)
 
     try:
         callback_data = json.loads(request.body)
-        logger.info(f"Callback received: {json.dumps(callback_data, indent=2)}")
+        logger.info(f"Callback received: {callback_data}")
 
-        # Try both stkCallback and stk_callback keys
-        callback = callback_data.get("Body", {}).get("stkCallback", None)
-        if callback is None:
-            callback = callback_data.get("Body", {}).get("stk_callback", {})
-            logger.warning("Using 'stk_callback' key instead of 'stkCallback' in callback payload")
-
+        # Extract callback data
+        callback = (callback_data.get("Body", {}).get("stkCallback") or 
+                   callback_data.get("Body", {}).get("stk_callback"))
+        
         if not callback:
-            logger.error("Invalid callback: missing stkCallback or stk_callback in Body")
             return HttpResponse(status=400)
 
         result_code = callback.get("ResultCode")
         transaction_id = callback.get("CheckoutRequestID")
-        result_desc = callback.get("ResultDesc")
 
         if not transaction_id:
-            logger.error("Invalid callback: missing CheckoutRequestID")
             return HttpResponse(status=400)
 
-        # Extract metadata if payment was successful
-        mpesa_receipt = None
-        phone = None
-        amount = None
-        if result_code == 0 and "CallbackMetadata" in callback:
-            metadata_items = callback["CallbackMetadata"]["Item"]
-            metadata = {item["Name"]: item.get("Value") for item in metadata_items}
-            mpesa_receipt = metadata.get("MpesaReceiptNumber")
-            phone = str(metadata.get("PhoneNumber"))
-            amount = metadata.get("Amount")
-            logger.info(f"Callback metadata: receipt={mpesa_receipt}, phone={phone}, amount={amount}")
-
-        # Find Payment
+        # Process payment
         try:
             payment = Payment.objects.get(transaction_id=transaction_id)
         except Payment.DoesNotExist:
-            logger.error(f"Payment not found for transaction_id={transaction_id}")
             return HttpResponse(status=404)
 
-        # Skip if payment is already finished
         if payment.is_finished:
-            logger.info(f"Payment already processed: transaction_id={transaction_id}, status={payment.status}")
             return HttpResponse(status=200)
 
-        # Update Payment
+        # Update payment status
         payment.is_finished = True
-        payment.is_successful = (result_code == 0)
+        payment.is_successful = result_code == 0
         payment.status = "completed" if result_code == 0 else "failed"
         payment.completed_at = timezone.now()
-        if result_code == 0 and mpesa_receipt:
-            payment.mpesa_receipt = mpesa_receipt
-            payment.phone = normalize_phone(phone or payment.phone)
-        payment.save()
-        logger.info(f"Payment updated: transaction_id={transaction_id}, status={payment.status}")
 
-        # Process successful payment
-        if result_code == 0:
-            try:
-                # Generate the next D-prefixed username
-                last_user = User.objects.filter(username__startswith='D').order_by('-username').first()
-                if last_user:
-                    try:
-                        last_number = int(last_user.username[1:])
-                        new_number = last_number + 1
-                    except (ValueError, IndexError):
-                        new_number = 1
-                else:
-                    new_number = 1
-                
-                new_username = f"D{new_number}"
-                
-                # Create or update user
-                user, created = User.objects.get_or_create(
+        # Handle successful payment
+        if result_code == 0 and "CallbackMetadata" in callback:
+            metadata = {item["Name"]: item["Value"] 
+                       for item in callback["CallbackMetadata"]["Item"]}
+            
+            payment.mpesa_receipt = metadata.get("MpesaReceiptNumber")
+            if metadata.get("PhoneNumber"):
+                payment.phone = normalize_phone(metadata["PhoneNumber"])
+            payment.save()
+
+            # Create user with D-prefixed username
+            last_d_user = User.objects.filter(username__startswith='D').order_by('-username').first()
+            new_number = int(last_d_user.username[1:]) + 1 if last_d_user else 1
+            
+            user, _ = User.objects.update_or_create(
+                phone=payment.phone,
+                defaults={
+                    'username': f"D{new_number}",
+                    'package': payment.package,
+                    'status': 'active'
+                }
+            )
+
+            # Create session if doesn't exist
+            if not Session.objects.filter(payment=payment).exists():
+                Session.objects.create(
+                    user=user,
                     phone=payment.phone,
-                    defaults={
-                        'username': new_username,
-                        'package': payment.package,
-                        'user_type': 'hotspot',
-                        'status': 'active'
-                    }
-                )
-                
-                if not created:
-                    user.package = payment.package
-                    user.status = 'active'
-                    user.save()
-                
-                logger.info(f"User {'created' if created else 'updated'}: username={user.username}")
-
-                # Check for existing session
-                existing_session = Session.objects.filter(payment=payment).first()
-                if existing_session:
-                    logger.info(f"Session already exists: session_id={existing_session.session_id}")
-                    return HttpResponse(status=200)
-
-                # Validate package
-                if not payment.package:
-                    logger.error(f"No package associated with payment: transaction_id={transaction_id}")
-                    return HttpResponse(status=500)
-
-                # Create new session
-                session = Session.objects.create(
-                    session_id=uuid.uuid4(),
-                    user=user,  # Use the created/updated user
                     package=payment.package,
                     payment=payment,
-                    phone=payment.phone,
-                    voucher_code=mpesa_receipt,
-                    created_at=timezone.now(),
-                    end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
                     duration_minutes=payment.package.duration_minutes,
-                    status="active"
+                    end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
+                    voucher_code=payment.mpesa_receipt
                 )
-                logger.info(f"Session created: session_id={session.session_id}, end_time={session.end_time}")
-                
-            except DatabaseError as e:
-                logger.exception(f"Failed to process payment: transaction_id={transaction_id}: {str(e)}")
-                return HttpResponse(status=500)
-        else:
-            logger.warning(f"Payment failed: transaction_id={transaction_id}, result_desc={result_desc}")
 
         return HttpResponse(status=200)
 
-    except json.JSONDecodeError:
-        logger.error("Invalid JSON in callback request")
-        return HttpResponse(status=400)
     except Exception as e:
-        logger.exception(f"Error in callback: {str(e)}")
+        logger.exception(f"Callback error: {str(e)}")
         return HttpResponse(status=500)
 
 @csrf_exempt
