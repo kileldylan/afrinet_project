@@ -75,7 +75,7 @@ const Payments = () => {
   const handleSubmitPayment = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.post('/api/initiate-payment/', formData);
+      const response = await axiosInstance.post('/mpesa/stk-push/', formData);
       
       if (response.data.success) {
         // Refresh payments list
