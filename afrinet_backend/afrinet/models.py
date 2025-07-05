@@ -63,6 +63,8 @@ class Payment(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     is_successful = models.BooleanField(default=False)
     is_finished = models.BooleanField(default=False)
+    is_checked = models.BooleanField(default=False)
+
 
     def __str__(self):
         return f"{self.phone_number} - {self.amount} - {self.status}"
