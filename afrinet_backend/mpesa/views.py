@@ -41,22 +41,22 @@ def stk_push(request):
     try:
         data = json.loads(request.body)
         logger.info(f"stk_push request: {json.dumps(data, indent=2)}")
-        phone_number = normalize_phone(data.get("phone_number"))
+        phone = normalize_phone(data.get("phone"))
         amount = data.get("amount")
         account_reference = data.get("account_reference", "WIFI_PAYMENT")
         transaction_desc = data.get("transaction_desc", "Wifi Package Payment")
         package_id = data.get("package_id")  # Optional
 
-        if not phone_number or not amount:
-            logger.error("Missing phone_number or amount in stk_push request")
+        if not phone or not amount:
+            logger.error("Missing phone or amount in stk_push request")
             return JsonResponse({"success": False, "message": "Missing required fields"}, status=400)
 
         # Find or create user
         user, created = User.objects.get_or_create(
-            phone_number=phone_number,
+            phone=phone,
             defaults={'created_at': timezone.now()}
         )
-        logger.info(f"User {'created' if created else 'retrieved'}: {phone_number}")
+        logger.info(f"User {'created' if created else 'retrieved'}: {phone}")
 
         # Find package
         package = None
@@ -77,7 +77,7 @@ def stk_push(request):
 
         # Initiate STK Push
         response = MpesaService.initiate_stk_push(
-            phone_number=phone_number,
+            phone=phone,
             amount=amount,
             account_reference=account_reference,
             transaction_desc=transaction_desc
@@ -89,7 +89,7 @@ def stk_push(request):
             payment = Payment.objects.create(
                 user=user,
                 amount=amount,
-                phone_number=phone_number,
+                phone=phone,
                 package=package,
                 transaction_id=response.get("checkout_request_id"),
                 status="pending",
