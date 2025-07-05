@@ -41,7 +41,10 @@ def stk_push(request):
     try:
         data = json.loads(request.body)
         logger.info(f"stk_push request: {json.dumps(data, indent=2)}")
-        phone = normalize_phone(data.get("phone"))
+        phone = data.get("phone")
+        if not phone:
+            return JsonResponse({"error": "Phone number required"}, status=400)
+        phone = normalize_phone(phone)        
         amount = data.get("amount")
         account_reference = data.get("account_reference", "WIFI_PAYMENT")
         transaction_desc = data.get("transaction_desc", "Wifi Package Payment")
