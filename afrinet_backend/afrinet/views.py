@@ -98,7 +98,7 @@ class MpesaSTKTestView(APIView):
         try:
             from mpesa.services import MpesaService
             test_data = {
-                'phone_number': '254758715788',
+                'phone': '254758715788',
                 'amount': '1',
                 'account_reference': 'TEST',
                 'transaction_desc': 'Test Payment'
@@ -125,16 +125,16 @@ class InitiatePaymentView(APIView):
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        phone_number = serializer.validated_data['phone_number']
+        phone = serializer.validated_data['phone']
         package_id = serializer.validated_data['package_id']
         
         try:
-            logger.info(f"Received payment request: phone={phone_number}, package_id={package_id}")
+            logger.info(f"Received payment request: phone={phone}, package_id={package_id}")
             package = Package.objects.get(package_id=package_id)  # Use custom package_id field
             logger.info(f"Selected package: id={package.id}, package_id={package.package_id}, price={package.price}")
             
             user, created = User.objects.get_or_create(
-                phone_number=phone_number,
+                phonr=phone,
                 defaults={'package': package}
             )
             
@@ -143,7 +143,7 @@ class InitiatePaymentView(APIView):
                 user.save()
             
             mpesa_data = {
-                'phone_number': f"254{phone_number.lstrip('0')}",
+                'phone': f"254{phone.lstrip('0')}",
                 'amount': str(int(package.price)),
                 'account_reference': f"Afrinet_WIFI{package.package_id}",  # Use package_id for clarity
                 'transaction_desc': f"Afrinet_Wifi {package.duration_value} {package.duration_unit} Package"
@@ -158,7 +158,7 @@ class InitiatePaymentView(APIView):
                     user=user,
                     package=package,
                     amount=package.price,
-                    phone_number=phone_number,  # Store raw phone number
+                    phone=phone,  # Store raw phone number
                     transaction_id=stk_response.get('checkout_request_id'),
                     status='pending'
                 )
@@ -190,10 +190,10 @@ class InitiatePaymentView(APIView):
 
 class UserSessionView(APIView):
     """Gets current active session for a user"""
-    def get(self, request, phone_number, *args, **kwargs):
+    def get(self, request, phone, *args, **kwargs):
         try:
             session = Session.objects.filter(
-                phone_number=phone_number,
+                phone=phone,
                 status='active'
             ).latest('created_at')
             return Response({
@@ -220,7 +220,7 @@ class AllActiveSessionsView(APIView):
         for session in sessions:
             session_data.append({
                 "id": str(session.session_id),
-                "phone_number": session.phone_number,
+                "phone": session.phone,
                 "device_mac": session.device_mac,
                 "ip_address": session.ip_address,
                 "package_name": session.package.package_id if session.package else "N/A",

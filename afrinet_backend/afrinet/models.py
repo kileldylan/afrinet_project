@@ -53,7 +53,7 @@ class Payment(models.Model):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    phone_number = models.CharField(max_length=15)
+    phone = models.CharField(max_length=15)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_id = models.CharField(max_length=100, unique=True)
     mpesa_receipt = models.CharField(max_length=100, null=True, blank=True, unique=True)
@@ -67,12 +67,12 @@ class Payment(models.Model):
 
 
     def __str__(self):
-        return f"{self.phone_number} - {self.amount} - {self.status}"
+        return f"{self.phone} - {self.amount} - {self.status}"
     
 class Session(models.Model):
     session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    phone_number = models.CharField(max_length=15, null=True, blank=True)  # stored separately for unauthenticated sessions
+    phone = models.CharField(max_length=15, null=True, blank=True)  # stored separately for unauthenticated sessions
     voucher_code = models.CharField(max_length=100, null=True, blank=True)
     device_mac = models.CharField(max_length=50, null=True, blank=True)
     ip_address = models.GenericIPAddressField(default="127.0.0.1")
@@ -122,11 +122,11 @@ class Session(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.phone_number or self.device_mac} - {self.status}"
+        return f"{self.phone or self.device_mac} - {self.status}"
     
 class Voucher(models.Model):
     code = models.CharField(max_length=100, unique=True)
-    phone_number = models.CharField(max_length=50, default="")
+    phone = models.CharField(max_length=50, default="")
     is_used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)

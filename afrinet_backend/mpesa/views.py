@@ -145,15 +145,15 @@ def callback(request):
 
         # Extract metadata if payment was successful
         mpesa_receipt = None
-        phone_number = None
+        phone = None
         amount = None
         if result_code == 0 and "CallbackMetadata" in callback:
             metadata_items = callback["CallbackMetadata"]["Item"]
             metadata = {item["Name"]: item.get("Value") for item in metadata_items}
             mpesa_receipt = metadata.get("MpesaReceiptNumber")
-            phone_number = str(metadata.get("PhoneNumber"))
+            phone = str(metadata.get("PhoneNumber"))
             amount = metadata.get("Amount")
-            logger.info(f"Callback metadata: receipt={mpesa_receipt}, phone={phone_number}, amount={amount}")
+            logger.info(f"Callback metadata: receipt={mpesa_receipt}, phone={phone}, amount={amount}")
 
         # Find Payment
         try:
@@ -174,13 +174,44 @@ def callback(request):
         payment.completed_at = timezone.now()
         if result_code == 0 and mpesa_receipt:
             payment.mpesa_receipt = mpesa_receipt
-            payment.phone_number = normalize_phone(phone_number or payment.phone_number)
+            payment.phone = normalize_phone(phone or payment.phone)
         payment.save()
         logger.info(f"Payment updated: transaction_id={transaction_id}, status={payment.status}")
 
-        # Create Session for successful payment
+        # Process successful payment
         if result_code == 0:
             try:
+                # Generate the next D-prefixed username
+                last_user = User.objects.filter(username__startswith='D').order_by('-username').first()
+                if last_user:
+                    try:
+                        last_number = int(last_user.username[1:])
+                        new_number = last_number + 1
+                    except (ValueError, IndexError):
+                        new_number = 1
+                else:
+                    new_number = 1
+                
+                new_username = f"D{new_number}"
+                
+                # Create or update user
+                user, created = User.objects.get_or_create(
+                    phone=payment.phone,
+                    defaults={
+                        'username': new_username,
+                        'package': payment.package,
+                        'user_type': 'hotspot',
+                        'status': 'active'
+                    }
+                )
+                
+                if not created:
+                    user.package = payment.package
+                    user.status = 'active'
+                    user.save()
+                
+                logger.info(f"User {'created' if created else 'updated'}: username={user.username}")
+
                 # Check for existing session
                 existing_session = Session.objects.filter(payment=payment).first()
                 if existing_session:
@@ -195,10 +226,10 @@ def callback(request):
                 # Create new session
                 session = Session.objects.create(
                     session_id=uuid.uuid4(),
-                    user=payment.user,
+                    user=user,  # Use the created/updated user
                     package=payment.package,
                     payment=payment,
-                    phone_number=payment.phone_number,
+                    phone=payment.phone,
                     voucher_code=mpesa_receipt,
                     created_at=timezone.now(),
                     end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),
@@ -206,8 +237,9 @@ def callback(request):
                     status="active"
                 )
                 logger.info(f"Session created: session_id={session.session_id}, end_time={session.end_time}")
+                
             except DatabaseError as e:
-                logger.exception(f"Failed to create session for transaction_id={transaction_id}: {str(e)}")
+                logger.exception(f"Failed to process payment: transaction_id={transaction_id}: {str(e)}")
                 return HttpResponse(status=500)
         else:
             logger.warning(f"Payment failed: transaction_id={transaction_id}, result_desc={result_desc}")
@@ -232,20 +264,20 @@ def verify_session(request):
         data = json.loads(request.body)
         logger.info(f"verify_session request: {json.dumps(data, indent=2)}")
         checkout_id = data.get("transaction_id")
-        phone_number = normalize_phone(data.get("phone_number"))
+        phone = normalize_phone(data.get("phone"))
 
-        if not checkout_id or not phone_number:
-            logger.error("Missing transaction_id or phone_number in verify_session request")
+        if not checkout_id or not phone:
+            logger.error("Missing transaction_id or phone in verify_session request")
             return JsonResponse({"success": False, "message": "Checkout ID and phone number are required"}, status=400)
 
         # Find Payment
         payment = Payment.objects.filter(
             transaction_id=checkout_id,
-            phone_number=phone_number
+            phone=phone
         ).first()
 
         if not payment:
-            logger.error(f"Payment not found: transaction_id={checkout_id}, phone_number={phone_number}")
+            logger.error(f"Payment not found: transaction_id={checkout_id}, phone={phone}")
             return JsonResponse({"success": False, "message": "Payment not found"}, status=404)
 
         # Fallback: Query M-Pesa if payment is pending and older than 30 seconds
@@ -260,7 +292,7 @@ def verify_session(request):
                     payment.is_finished = True
                     payment.completed_at = timezone.now()
                     payment.mpesa_receipt = query_response.get("MpesaReceiptNumber")
-                    payment.phone_number = normalize_phone(query_response.get("PhoneNumber", payment.phone_number))
+                    payment.phone = normalize_phone(query_response.get("PhoneNumber", payment.phone))
                     payment.save()
                     logger.info(f"Payment updated via query: transaction_id={checkout_id}, status=completed")
                 elif query_response.get("ResultCode") != 0:
@@ -298,7 +330,7 @@ def verify_session(request):
                     user=payment.user,
                     package=payment.package,
                     payment=payment,
-                    phone_number=payment.phone_number,
+                    phone=payment.phone,
                     voucher_code=payment.mpesa_receipt,
                     created_at=timezone.now(),
                     end_time=timezone.now() + timedelta(minutes=payment.package.duration_minutes),

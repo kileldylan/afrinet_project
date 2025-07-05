@@ -13,5 +13,5 @@ class VoucherAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('package', 'mpesa_receipt', 'transaction_id', 'phone_number', 'created_at')
+    list_display = ('package', 'mpesa_receipt', 'transaction_id', 'phone', 'created_at')
     search_fields = ('transaction_id',)
