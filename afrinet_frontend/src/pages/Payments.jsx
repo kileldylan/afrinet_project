@@ -86,7 +86,7 @@ const Payments = () => {
         // Close modal and reset form
         setOpenModal(false);
         setFormData({
-          phone_number: '',
+          phone: '',
           amount: '',
           package_id: '',
         });
