@@ -60,25 +60,32 @@ const Payments = () => {
     };
 
     fetchPayments();
-
-      const fetchPackages = async () => {
-    if (openModal) { // Only fetch when modal is open
-      try {
-        setPackagesLoading(true);
-        const response = await axiosInstance.get('/api/packages/');
-        setPackages(response.data);
-      } catch (err) {
-        setError('Failed to fetch packages');
-        console.error('Package fetch error:', err);
-      } finally {
-        setPackagesLoading(false);
-      }
-    }
-  };
-
-  fetchPackages()
   }, [tabValue]);
 
+  useEffect(() => {
+    const fetchPackages = async () => {
+      if (openModal) {
+        try {
+          setPackagesLoading(true);
+          const response = await axiosInstance.get('/api/packages/');
+          setPackages(response.data);
+        } catch (err) {
+          setError('Failed to fetch packages');
+          console.error('Package fetch error:', err);
+          // Add debug logging for CORS issues
+          if (err.response) {
+            console.log('Response headers:', err.response.headers);
+            console.log('Response status:', err.response.status);
+          }
+        } finally {
+          setPackagesLoading(false);
+        }
+      }
+    };
+
+    fetchPackages();
+  }, [openModal]); 
+  
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
