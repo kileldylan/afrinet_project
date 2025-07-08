@@ -1,8 +1,7 @@
 """
 Django settings for afrinet_wifi project.
 """
-import socket
-import psycopg2
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -11,10 +10,13 @@ import dj_database_url
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
 # Security settings
 SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')
-DEBUG = False
-ALLOWED_HOSTS = ['*', 'https://afrinet-project.onrender.com'] 
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = ['*', 'afrinet-project.onrender.com'] 
 
 # Application definition
 INSTALLED_APPS = [
@@ -63,20 +65,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'afrinet_wifi.wsgi.application'
 
-load_dotenv()
-
+# Database configuration
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL', 'postgresql://localhost'),  # Fallback to local if no URL
+        default=os.getenv('DATABASE_URL'),
         conn_max_age=600,
-        engine='django.db.backends.postgresql',  # Explicitly set engine
+        engine='django.db.backends.postgresql',
         ssl_require=True
     )
 }
-
-# Add explicit engine if not set (sometimes needed for dj_database_url)
-if 'ENGINE' not in DATABASES['default']:
-    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -113,10 +110,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Security
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # REST Framework
 REST_FRAMEWORK = {
@@ -138,3 +136,18 @@ MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE")
 MPESA_PASSKEY = os.getenv("MPESA_PASSKEY")
 MPESA_BASE_URL = os.getenv("MPESA_BASE_URL")
 MPESA_CALLBACK_URL = os.getenv("MPESA_CALLBACK_URL")
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
