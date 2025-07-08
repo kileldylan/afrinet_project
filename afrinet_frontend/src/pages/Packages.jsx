@@ -197,14 +197,14 @@ const Packages = () => {
               onChange={handleInputChange}
               required
             />
-                        <TextField
+            <TextField
               margin="dense"
               name="package_name"
               label="Package Name"
               type="text"
               fullWidth
               variant="outlined"
-              value={formData.package_id}
+              value={formData.package_name}
               onChange={handleInputChange}
               required
             />
