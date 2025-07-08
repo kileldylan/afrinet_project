@@ -66,8 +66,17 @@ WSGI_APPLICATION = 'afrinet_wifi.wsgi.application'
 load_dotenv()
 
 DATABASES = {
-    'default': dj_database_url.config(default=os.environ.get("DATABASE_URL"))
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL', 'postgresql://localhost'),  # Fallback to local if no URL
+        conn_max_age=600,
+        engine='django.db.backends.postgresql',  # Explicitly set engine
+        ssl_require=True
+    )
 }
+
+# Add explicit engine if not set (sometimes needed for dj_database_url)
+if 'ENGINE' not in DATABASES['default']:
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
