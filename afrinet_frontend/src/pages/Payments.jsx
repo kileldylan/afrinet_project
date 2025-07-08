@@ -35,6 +35,8 @@ const Payments = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openModal, setOpenModal] = useState(false);
+  const [packages, setPackages] = useState([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
   const [formData, setFormData] = useState({
     phone_number: '',
     amount: '',
@@ -58,6 +60,23 @@ const Payments = () => {
     };
 
     fetchPayments();
+
+      const fetchPackages = async () => {
+    if (openModal) { // Only fetch when modal is open
+      try {
+        setPackagesLoading(true);
+        const response = await axiosInstance.get('/api/packages/');
+        setPackages(response.data);
+      } catch (err) {
+        setError('Failed to fetch packages');
+        console.error('Package fetch error:', err);
+      } finally {
+        setPackagesLoading(false);
+      }
+    }
+  };
+
+  fetchPackages()
   }, [tabValue]);
 
   const handleTabChange = (event, newValue) => {
@@ -199,10 +218,19 @@ const Payments = () => {
               value={formData.package_id}
               onChange={handleInputChange}
               required
+              disabled={packagesLoading}
             >
-              <MenuItem value="daily">Daily Package</MenuItem>
-              <MenuItem value="weekly">Weekly Package</MenuItem>
-              <MenuItem value="monthly">Monthly Package</MenuItem>
+              {packagesLoading ? (
+                <MenuItem disabled>
+                  <CircularProgress size={24} />
+                </MenuItem>
+              ) : (
+                packages.map((pkg) => (
+                  <MenuItem key={pkg.id} value={pkg.id}>
+                    {pkg.name} - Ksh {pkg.price}
+                  </MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
         </DialogContent>
