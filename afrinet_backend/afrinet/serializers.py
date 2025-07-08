@@ -19,7 +19,7 @@ class SessionSerializer(serializers.ModelSerializer):
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Package
-        fields = ['id', 'package_id', 'price', 'duration_value', 'duration_unit', 'speed', 'popular']
+        fields = ['id', 'package_id', 'package_name', 'price', 'duration_value', 'duration_unit', 'speed', 'popular']
 
 class PaymentSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
