@@ -3,7 +3,8 @@ from django.db import models
 from django.utils import timezone
 
 class Package(models.Model):
-    package_id = models.CharField(max_length=10, unique=True)
+    package_id = models.CharField(max_length=20, unique=True)
+    package_name = models.CharField(max_length=50, unique=True)
     price = models.DecimalField(max_digits=6, decimal_places=2)
     duration_value = models.IntegerField(default=1)
     duration_unit = models.CharField(

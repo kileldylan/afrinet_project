@@ -2,9 +2,13 @@ from django.contrib import admin
 from.models import User, Payment, Session, Package, Voucher
 
 # Register your models here.
-admin.site.register(Package)
 admin.site.register(User)
 admin.site.register(Session)
+
+@admin.register(Package)
+class PackageAdmin(admin.ModelAdmin):
+    list_display = ['package_id', 'package_name', 'price', 'duration_value', 'duration_unit', 'speed', 'popular']
+    fields = ['package_id', 'package_name', 'price', 'duration_value', 'duration_unit', 'speed', 'popular']
 
 @admin.register(Voucher)
 class VoucherAdmin(admin.ModelAdmin):
