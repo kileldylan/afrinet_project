@@ -36,6 +36,7 @@ const Packages = () => {
   const [openModal, setOpenModal] = useState(false);
   const [formData, setFormData] = useState({
     package_id: '',
+    package_name: '',
     price: '',
     duration_value: 1,
     duration_unit: 'min',
@@ -164,7 +165,7 @@ const Packages = () => {
               </TableHead>
               <TableBody>
                 {packages.map((packageItem) => (
-                  <TableRow key={packageItem.package_id}>
+                  <TableRow key={packageItem.package_name}>
                     <TableCell>{formatDuration(packageItem)} at {packageItem.speed}</TableCell>
                     <TableCell>Ksh {packageItem.price}</TableCell>
                     <TableCell>{packageItem.speed}</TableCell>
@@ -189,6 +190,17 @@ const Packages = () => {
               margin="dense"
               name="package_id"
               label="Package ID"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={formData.package_id}
+              onChange={handleInputChange}
+              required
+            />
+                        <TextField
+              margin="dense"
+              name="package_name"
+              label="Package Name"
               type="text"
               fullWidth
               variant="outlined"
