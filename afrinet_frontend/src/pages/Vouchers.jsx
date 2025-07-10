@@ -45,7 +45,7 @@ const Vouchers = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
 
-  // Fetch data from API
+  // Safe data fetching with error handling
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -53,14 +53,29 @@ const Vouchers = () => {
         axiosInstance.get('/api/vouchers/'),
         axiosInstance.get('/api/packages/')
       ]);
-      setVouchers(vouchersRes.data);
-      setPackages(packagesRes.data);
+      
+      // Validate and set vouchers data
+      const validatedVouchers = Array.isArray(vouchersRes?.data) 
+        ? vouchersRes.data.filter(v => v && v.id) 
+        : [];
+      
+      // Validate and set packages data
+      const validatedPackages = Array.isArray(packagesRes?.data) 
+        ? packagesRes.data.filter(p => p && p.id) 
+        : [];
+      
+      setVouchers(validatedVouchers);
+      setPackages(validatedPackages);
+      
     } catch (error) {
+      console.error('Fetch error:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to fetch data',
+        message: 'Failed to fetch data. Please try again.',
         severity: 'error'
       });
+      setVouchers([]);
+      setPackages([]);
     } finally {
       setLoading(false);
     }
@@ -72,18 +87,30 @@ const Vouchers = () => {
 
   // Handle voucher creation
   const handleCreateVouchers = async () => {
+    if (!selectedPackage) return;
+    
     try {
       const response = await axiosInstance.post('/api/vouchers/generate/', {
         package_id: selectedPackage,
         quantity: quantity
       });
-      setVouchers([...response.data, ...vouchers]);
-      setSnackbar({
-        open: true,
-        message: 'Vouchers created successfully',
-        severity: 'success'
-      });
-      setCreateDialogOpen(false);
+      
+      // Validate new vouchers before adding to state
+      const newVouchers = Array.isArray(response?.data) 
+        ? response.data.filter(v => v && v.id)
+        : [];
+      
+      if (newVouchers.length > 0) {
+        setVouchers(prev => [...newVouchers, ...prev]);
+        setSnackbar({
+          open: true,
+          message: `${newVouchers.length} voucher(s) created successfully`,
+          severity: 'success'
+        });
+        setCreateDialogOpen(false);
+      } else {
+        throw new Error('No valid vouchers were created');
+      }
     } catch (error) {
       setSnackbar({
         open: true,
@@ -95,13 +122,17 @@ const Vouchers = () => {
 
   // Handle voucher status change
   const handleStatusChange = async (voucherId, newStatus) => {
+    if (!voucherId) return;
+    
     try {
       await axiosInstance.patch(`/api/vouchers/${voucherId}/`, {
         status: newStatus
       });
-      setVouchers(vouchers.map(v => 
-        v.id === voucherId ? {...v, status: newStatus} : v
+      
+      setVouchers(prev => prev.map(v => 
+        v?.id === voucherId ? {...v, status: newStatus} : v
       ));
+      
       setSnackbar({
         open: true,
         message: 'Voucher updated successfully',
@@ -115,25 +146,82 @@ const Vouchers = () => {
       });
     } finally {
       setAnchorEl(null);
+      setSelectedVoucher(null);
     }
   };
 
-  // Format date for display
+  // Safe date formatting
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
+    try {
+      return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
+    } catch {
+      return dateString; // Return raw string if formatting fails
+    }
   };
 
-  // Handle menu open
+  // Safe menu handling
   const handleMenuOpen = (event, voucher) => {
+    if (!voucher?.id) {
+      setSnackbar({
+        open: true,
+        message: 'Invalid voucher selected',
+        severity: 'error'
+      });
+      return;
+    }
     setAnchorEl(event.currentTarget);
     setSelectedVoucher(voucher);
   };
 
-  // Handle menu close
   const handleMenuClose = () => {
     setAnchorEl(null);
     setSelectedVoucher(null);
+  };
+
+  // Render table rows safely
+  const renderTableRows = () => {
+    if (!Array.isArray(vouchers) || vouchers.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={7} align="center">
+            No vouchers found
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return vouchers.map((voucher) => {
+      if (!voucher?.id) return null; // Skip invalid entries
+      
+      return (
+        <TableRow key={voucher.id}>
+          <TableCell>{voucher.code || 'N/A'}</TableCell>
+          <TableCell>
+            {voucher.payment?.package?.package_name || 'N/A'}
+          </TableCell>
+          <TableCell>
+            {voucher.payment?.package?.price ? 
+              `Ksh ${voucher.payment.package.price.toFixed(2)}` : 'N/A'}
+          </TableCell>
+          <TableCell>{formatDate(voucher.end_time)}</TableCell>
+          <TableCell>
+            <Typography 
+              color={voucher.is_used ? 'error' : 'success.main'}
+              fontWeight="bold"
+            >
+              {voucher.is_used ? 'Used' : 'Active'}
+            </Typography>
+          </TableCell>
+          <TableCell>{formatDate(voucher.created_at)}</TableCell>
+          <TableCell>
+            <IconButton onClick={(e) => handleMenuOpen(e, voucher)}>
+              <MoreVert />
+            </IconButton>
+          </TableCell>
+        </TableRow>
+      );
+    });
   };
 
   return (
@@ -184,43 +272,7 @@ const Vouchers = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {vouchers.length > 0 ? (
-                  vouchers.map((voucher) => (
-                    <TableRow key={voucher.id}>
-                      <TableCell>{voucher.code}</TableCell>
-                      <TableCell>
-                        {voucher.payment?.package?.package_name || 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {voucher.payment?.package?.price ? 
-                          `Ksh ${voucher.payment.package.price.toFixed(2)}` : 'N/A'}
-                      </TableCell>
-                      <TableCell>{formatDate(voucher.end_time)}</TableCell>
-                      <TableCell>
-                        <Typography 
-                          color={voucher.is_used ? 'error' : 'success.main'}
-                          fontWeight="bold"
-                        >
-                          {voucher.is_used ? 'Used' : 'Active'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(voucher.created_at)}</TableCell>
-                      <TableCell>
-                        <IconButton
-                          onClick={(e) => handleMenuOpen(e, voucher)}
-                        >
-                          <MoreVert />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      No vouchers found
-                    </TableCell>
-                  </TableRow>
-                )}
+                {renderTableRows()}
               </TableBody>
             </Table>
           </TableContainer>
@@ -239,10 +291,12 @@ const Vouchers = () => {
               onChange={(e) => setSelectedPackage(e.target.value)}
               required
             >
-              {packages.map((pkg) => (
-                <MenuItem key={pkg.id} value={pkg.id}>
-                  {pkg.package_name} (Ksh {pkg.price.toFixed(2)})
-                </MenuItem>
+              {Array.isArray(packages) && packages.map((pkg) => (
+                pkg?.id && (
+                  <MenuItem key={pkg.id} value={pkg.id}>
+                    {pkg.package_name || 'Unnamed Package'} (Ksh {pkg.price?.toFixed(2) || '0.00'})
+                  </MenuItem>
+                )
               ))}
             </Select>
           </FormControl>
@@ -275,7 +329,7 @@ const Vouchers = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        {selectedVoucher && (
+        {selectedVoucher?.id && (
           <>
             <MenuItem 
               onClick={() => handleStatusChange(selectedVoucher.id, 'active')}
