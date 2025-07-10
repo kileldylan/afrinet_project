@@ -42,7 +42,7 @@ urlpatterns = [
     path('vouchers/', VoucherListCreate.as_view(), name='voucher-list-create'),
     path('vouchers/<str:code>/', VoucherDetail.as_view(), name='voucher-detail'),
     path('vouchers/validate/', ValidateVoucher.as_view(), name='validate-voucher'),
-    path('vouchers/generate/', generate_vouchers.as_view(), name='generate-voucher'),
+    path('vouchers/generate/', generate_vouchers, name='generate-voucher'),
     
     # MikroTik
     path('mikrotik/sync/', sync_mikrotik, name='sync-mikrotik'),
