@@ -317,6 +317,67 @@ class VoucherListCreate(generics.ListCreateAPIView):
         serializer = self.get_serializer(vouchers, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+@api_view(['POST'])
+def generate_vouchers(request):
+    try:
+        package_id = request.data.get('package_id')
+        quantity = int(request.data.get('quantity', 1))
+        
+        # Validate input
+        if not package_id or quantity < 1:
+            return Response(
+                {'error': 'Package ID and quantity (minimum 1) are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            package = Package.objects.get(pk=package_id)
+        except Package.DoesNotExist:
+            return Response(
+                {'error': 'Package not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Create a dummy payment record for these vouchers
+        payment = Payment.objects.create(
+            amount=package.price * quantity,
+            package=package,
+            status='completed',
+            is_successful=True
+        )
+        
+        generated_vouchers = []
+        for _ in range(quantity):
+            # Generate random voucher code (8 characters)
+            code = ''.join(random.choices(
+                string.ascii_uppercase + string.digits,
+                k=8
+            ))
+            
+            # Calculate expiry based on package duration
+            expiry_time = timezone.now() + timedelta(
+                minutes=package.duration_minutes
+            )
+            
+            # Create the voucher
+            voucher = Voucher.objects.create(
+                code=code,
+                payment=payment,
+                end_time=expiry_time,
+                is_used=False
+            )
+            generated_vouchers.append(voucher)
+        
+        # Serialize and return the created vouchers
+        serializer = VoucherSerializer(generated_vouchers, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
 class VoucherDetail(generics.RetrieveAPIView):
     queryset = Voucher.objects.all()
     serializer_class = VoucherSerializer
