@@ -105,7 +105,7 @@ const Vouchers = () => {
     if (!selectedPackage) return;
     
     try {
-      const response = await axiosInstance.post('/api/vouchers/generate/', {
+      const response = await axiosInstance.post('/api/mikrotik/generate-voucher/', {
         package_id: selectedPackage,
         quantity: quantity
       });
