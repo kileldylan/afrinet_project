@@ -21,7 +21,7 @@ from .views import (
     mikrotik_configure,
     mikrotik_device_list,
     test_mikrotik_connection,
-    generate_vouchers
+    GenerateVouchersView
 )
 
 urlpatterns = [
@@ -42,7 +42,7 @@ urlpatterns = [
     path('vouchers/', VoucherListCreate.as_view(), name='voucher-list-create'),
     path('vouchers/<str:code>/', VoucherDetail.as_view(), name='voucher-detail'),
     path('vouchers/validate/', ValidateVoucher.as_view(), name='validate-voucher'),
-    path('vouchers/generate/', generate_vouchers, name='generate-voucher'),
+    path('vouchers/generate/', GenerateVouchersView.as_view(), name='generate-voucher'),
     
     # MikroTik
     path('mikrotik/sync/', sync_mikrotik, name='sync-mikrotik'),
