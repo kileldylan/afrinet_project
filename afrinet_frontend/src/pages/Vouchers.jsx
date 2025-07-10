@@ -45,7 +45,7 @@ const Vouchers = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
 
-  // Safe data fetching with error handling
+  // Safe data fetching with validation
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -53,20 +53,35 @@ const Vouchers = () => {
         axiosInstance.get('/api/vouchers/'),
         axiosInstance.get('/api/packages/')
       ]);
-      
-      // Validate and set vouchers data
+
+      // Validate and transform vouchers data
       const validatedVouchers = Array.isArray(vouchersRes?.data) 
-        ? vouchersRes.data.filter(v => v && v.id) 
+        ? vouchersRes.data
+            .filter(v => v && v.id) // Remove invalid entries
+            .map(v => ({
+              ...v,
+              payment: v.payment ? {
+                ...v.payment,
+                package: v.payment.package ? {
+                  ...v.payment.package,
+                  price: Number(v.payment.package.price) || 0 // Ensure price is a number
+                } : null
+              } : null
+            }))
         : [];
-      
-      // Validate and set packages data
+
+      // Validate packages data
       const validatedPackages = Array.isArray(packagesRes?.data) 
-        ? packagesRes.data.filter(p => p && p.id) 
+        ? packagesRes.data
+            .filter(p => p && p.id)
+            .map(p => ({
+              ...p,
+              price: Number(p.price) || 0 // Ensure price is a number
+            }))
         : [];
-      
+
       setVouchers(validatedVouchers);
       setPackages(validatedPackages);
-      
     } catch (error) {
       console.error('Fetch error:', error);
       setSnackbar({
@@ -95,9 +110,20 @@ const Vouchers = () => {
         quantity: quantity
       });
       
-      // Validate new vouchers before adding to state
+      // Validate and transform new vouchers
       const newVouchers = Array.isArray(response?.data) 
-        ? response.data.filter(v => v && v.id)
+        ? response.data
+            .filter(v => v && v.id)
+            .map(v => ({
+              ...v,
+              payment: v.payment ? {
+                ...v.payment,
+                package: v.payment.package ? {
+                  ...v.payment.package,
+                  price: Number(v.payment.package.price) || 0
+                } : null
+              } : null
+            }))
         : [];
       
       if (newVouchers.length > 0) {
@@ -108,6 +134,8 @@ const Vouchers = () => {
           severity: 'success'
         });
         setCreateDialogOpen(false);
+        setSelectedPackage('');
+        setQuantity(1);
       } else {
         throw new Error('No valid vouchers were created');
       }
@@ -130,7 +158,7 @@ const Vouchers = () => {
       });
       
       setVouchers(prev => prev.map(v => 
-        v?.id === voucherId ? {...v, status: newStatus} : v
+        v?.id === voucherId ? {...v, is_used: newStatus === 'used'} : v
       ));
       
       setSnackbar({
@@ -181,7 +209,27 @@ const Vouchers = () => {
 
   // Render table rows safely
   const renderTableRows = () => {
-    if (!Array.isArray(vouchers) || vouchers.length === 0) {
+    if (loading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={7} align="center">
+            <CircularProgress />
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (!Array.isArray(vouchers)) {
+      return (
+        <TableRow>
+          <TableCell colSpan={7} align="center">
+            <Alert severity="error">Invalid data format</Alert>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (vouchers.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={7} align="center">
@@ -192,8 +240,14 @@ const Vouchers = () => {
     }
 
     return vouchers.map((voucher) => {
-      if (!voucher?.id) return null; // Skip invalid entries
-      
+      if (!voucher?.id) return null;
+
+      // Safely handle price display
+      const price = voucher.payment?.package?.price;
+      const displayPrice = typeof price === 'number' 
+        ? `Ksh ${price.toFixed(2)}` 
+        : 'N/A';
+
       return (
         <TableRow key={voucher.id}>
           <TableCell>{voucher.code || 'N/A'}</TableCell>
@@ -201,8 +255,7 @@ const Vouchers = () => {
             {voucher.payment?.package?.package_name || 'N/A'}
           </TableCell>
           <TableCell>
-            {voucher.payment?.package?.price ? 
-              `Ksh ${voucher.payment.package.price.toFixed(2)}` : 'N/A'}
+            {displayPrice}
           </TableCell>
           <TableCell>{formatDate(voucher.end_time)}</TableCell>
           <TableCell>
@@ -252,32 +305,26 @@ const Vouchers = () => {
         </Button>
       </Box>
 
-      {loading ? (
-        <Box display="flex" justifyContent="center" my={4}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Paper elevation={3} sx={{ p: 2, borderRadius: 2, overflow: 'hidden' }}>
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table sx={{ minWidth: 650 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Code</TableCell>
-                  <TableCell>Package</TableCell>
-                  <TableCell>Price</TableCell>
-                  <TableCell>Expiry</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {renderTableRows()}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      )}
+      <Paper elevation={3} sx={{ p: 2, borderRadius: 2, overflow: 'hidden' }}>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 650 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Code</TableCell>
+                <TableCell>Package</TableCell>
+                <TableCell>Price</TableCell>
+                <TableCell>Expiry</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Created</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {renderTableRows()}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {/* Create Voucher Dialog */}
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)}>
@@ -294,7 +341,7 @@ const Vouchers = () => {
               {Array.isArray(packages) && packages.map((pkg) => (
                 pkg?.id && (
                   <MenuItem key={pkg.id} value={pkg.id}>
-                    {pkg.package_name || 'Unnamed Package'} (Ksh {pkg.price?.toFixed(2) || '0.00'})
+                    {pkg.package_name || 'Unnamed Package'} (Ksh {typeof pkg.price === 'number' ? pkg.price.toFixed(2) : '0.00'})
                   </MenuItem>
                 )
               ))}
@@ -306,7 +353,10 @@ const Vouchers = () => {
             label="Quantity"
             type="number"
             value={quantity}
-            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              setQuantity(isNaN(value) || value < 1 ? 1 : value);
+            }}
             inputProps={{ min: 1 }}
           />
         </DialogContent>
