@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Payment, Session, Package
+from .models import User, Payment, Session, Package, Voucher, MikroTikDevice
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,9 +12,14 @@ class UserSerializer(serializers.ModelSerializer):
     package = serializers.StringRelatedField()
 
 class SessionSerializer(serializers.ModelSerializer):
+    time_remaining = serializers.SerializerMethodField()
+    
     class Meta:
         model = Session
         fields = '__all__'
+    
+    def get_time_remaining(self, obj):
+        return obj.time_remaining
         
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -57,3 +62,23 @@ class PaymentInitiationSerializer(serializers.Serializer):
         if not Package.objects.filter(package_id=value).exists():
             raise serializers.ValidationError("Invalid package ID")
         return value
+
+class VoucherSerializer(serializers.ModelSerializer):
+    is_valid = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Voucher
+        fields = '__all__'
+    
+    def get_is_valid(self, obj):
+        return obj.is_valid()
+
+class MikroTikDeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MikroTikDevice
+        fields = ['id', 'name', 'ip', 'username', 'port', 'status', 'lastUpdate']
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'status': {'read_only': True},
+            'lastUpdate': {'read_only': True}
+        }

@@ -138,3 +138,15 @@ class Voucher(models.Model):
 
     def __str__(self):
         return self.code
+    
+class MikroTikDevice(models.Model):
+    name = models.CharField(max_length=100)
+    ip = models.CharField(max_length=15)
+    username = models.CharField(max_length=50)
+    password = models.CharField(max_length=100)  # Store encrypted
+    port = models.CharField(max_length=5, default='8728')
+    status = models.CharField(max_length=10, choices=[('Online', 'Online'), ('Offline', 'Offline')], default='Offline')
+    lastUpdate = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.ip})"

@@ -1,14 +1,26 @@
 from django.urls import path
 from .views import (
+    ActiveUserDetail,
+    ActiveUserList,
+    ActiveUserStats,
+    DisconnectActiveUser,
     PackageListCreateView,
     InitiatePaymentView,
     UserSessionView,
     MpesaAuthTestView,
     MpesaSTKTestView,
-    verify_config,
     AllActiveSessionsView,
     UserListAPIView,
-    PaymentListView
+    PaymentListView,
+    ValidateVoucher,
+    VoucherDetail,
+    VoucherListCreate,
+    create_hotspot_user,
+    generate_mikrotik_voucher,
+    sync_mikrotik,
+    mikrotik_configure,
+    mikrotik_device_list,
+    test_mikrotik_connection
 )
 
 urlpatterns = [
@@ -20,5 +32,23 @@ urlpatterns = [
     path('sessions/<str:phone_number>/', UserSessionView.as_view(), name='user-session'),
     path('mpesa/stk-test/', MpesaSTKTestView.as_view(), name='test_stk_push'),
     path('mpesa/auth-test/', MpesaAuthTestView.as_view(), name='mpesa-auth-test'),
-    path('verify-config/', verify_config, name='verify_config'),
+    path('active-users/', ActiveUserList.as_view(), name='active-user-list'),
+    path('active-users/<uuid:session_id>/', ActiveUserDetail.as_view(), name='active-user-detail'),
+    path('active-users/<uuid:session_id>/disconnect/', DisconnectActiveUser.as_view(), name='disconnect-user'),
+    path('active-users/stats/', ActiveUserStats.as_view(), name='active-user-stats'),
+    
+    # Vouchers
+    path('vouchers/', VoucherListCreate.as_view(), name='voucher-list-create'),
+    path('vouchers/<str:code>/', VoucherDetail.as_view(), name='voucher-detail'),
+    path('vouchers/validate/', ValidateVoucher.as_view(), name='validate-voucher'),
+    
+    # MikroTik
+    path('mikrotik/sync/', sync_mikrotik, name='sync-mikrotik'),
+    path('mikrotik/create-user/', create_hotspot_user, name='create-hotspot-user'),
+    path('mikrotik/generate-voucher/', generate_mikrotik_voucher, name='generate-mikrotik-voucher'),
+    
+    # New endpoints
+    path('mikrotik/devices/', mikrotik_device_list, name='mikrotik-device-list'),
+    path('mikrotik/configure/', mikrotik_configure, name='mikrotik-configure'),
+    path('mikrotik/test-connection/<int:device_id>/', test_mikrotik_connection, name='test-mikrotik-connection'),
 ]
