@@ -69,7 +69,8 @@ class VoucherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Voucher
         fields = '__all__'
-    
+        read_only_fields = fields
+        
     def get_is_valid(self, obj):
         return obj.is_valid()
 
