@@ -132,7 +132,8 @@ class Voucher(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
     payment = models.ForeignKey(Payment, related_name='vouchers', on_delete=models.CASCADE, default=None)
-
+    quantity = models.PositiveIntegerField(default=1)
+    
     def is_valid(self):
         return not self.is_used and (self.end_time is None or self.end_time > timezone.now())
 
