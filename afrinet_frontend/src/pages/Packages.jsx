@@ -85,6 +85,7 @@ const Packages = () => {
     setOpenModal(false);
     setFormData({
       package_id: '',
+      package_name: '',
       price: '',
       duration_value: 1,
       duration_unit: 'min',
