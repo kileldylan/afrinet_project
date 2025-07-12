@@ -77,9 +77,19 @@ class VoucherSerializer(serializers.ModelSerializer):
 class MikroTikDeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = MikroTikDevice
-        fields = ['id', 'name', 'ip', 'username', 'port', 'status', 'lastUpdate']
+        fields = ['id', 'name', 'ip', 'username', 'password', 'port', 'status', 'lastUpdate']
         extra_kwargs = {
-            'password': {'write_only': True},
+            'password': {
+                'write_only': True,
+                'required': False,  # Not required for updates
+                'allow_blank': True  # Allow blank for updates
+            },
             'status': {'read_only': True},
             'lastUpdate': {'read_only': True}
         }
+
+    def validate(self, data):
+        # Require password for new devices
+        if not self.instance and not data.get('password'):
+            raise serializers.ValidationError({'password': 'Password is required for new devices'})
+        return data

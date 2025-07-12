@@ -455,15 +455,21 @@ def mikrotik_device_list(request):
 
 @api_view(['POST'])
 def mikrotik_configure(request):
-    serializer = MikroTikDeviceSerializer(data=request.data)
+    device_id = request.data.get('id')
+    
+    if device_id:
+        try:
+            device = MikroTikDevice.objects.get(pk=device_id)
+            serializer = MikroTikDeviceSerializer(device, data=request.data, partial=True)
+        except MikroTikDevice.DoesNotExist:
+            return Response({'error': 'Device not found'}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        serializer = MikroTikDeviceSerializer(data=request.data)
+
     if serializer.is_valid():
-        # Check if updating existing device
-        if 'id' in request.data:
-            device = MikroTikDevice.objects.get(pk=request.data['id'])
-            serializer = MikroTikDeviceSerializer(device, data=request.data)
-        
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
