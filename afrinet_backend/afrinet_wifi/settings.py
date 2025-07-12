@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     'whitenoise.runserver_nostatic',
 ]
 
+AUTH_USER_MODEL = 'afrinet.DefaultUser'
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',

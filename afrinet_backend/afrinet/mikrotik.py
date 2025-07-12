@@ -2,7 +2,7 @@ from datetime import timezone
 import routeros_api
 from django.conf import settings
 
-from .models import Session, User
+from .models import Session, HostspotUser
 
 class MikroTik:
     def __init__(self):
@@ -32,7 +32,7 @@ class MikroTik:
                 device_mac=user['mac-address'],
                 defaults={
                     'ip_address': user['address'],
-                    'user': User.objects.filter(username=user['user']).first(),
+                    'user': HostspotUser.objects.filter(username=user['user']).first(),
                     'is_active': True,
                     'status': 'active'
                 }

@@ -6,6 +6,8 @@ from .views import (
     DisconnectActiveUser,
     PackageListCreateView,
     InitiatePaymentView,
+    UserLoginAPIView,
+    UserLogoutAPIView,
     UserSessionView,
     MpesaAuthTestView,
     MpesaSTKTestView,
@@ -25,6 +27,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path('auth/login/', UserLoginAPIView.as_view(), name='login'),
+    path('auth/logout/', UserLogoutAPIView.as_view(), name='logout'),
     path('packages/', PackageListCreateView.as_view(), name='package-list'),
     path('payments/', PaymentListView.as_view(), name='payment-list'),
     path('users/', UserListAPIView.as_view(), name='users'),
@@ -43,7 +47,7 @@ urlpatterns = [
     path('vouchers/<str:code>/', VoucherDetail.as_view(), name='voucher-detail'),
     path('vouchers/validate/', ValidateVoucher.as_view(), name='validate-voucher'),
     path('vouchers/generate/', GenerateVouchersView.as_view(), name='generate-voucher'),
-    
+        
     # MikroTik
     path('mikrotik/sync/', sync_mikrotik, name='sync-mikrotik'),
     path('mikrotik/create-user/', create_hotspot_user, name='create-hotspot-user'),

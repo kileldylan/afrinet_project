@@ -1,8 +1,29 @@
 from django.contrib import admin
-from.models import User, Payment, Session, Package, Voucher
+from django.contrib.auth.admin import UserAdmin
+from .models import CustomUser, HostspotUser, Payment, Session, Package, Voucher
 
-# Register your models here.
-admin.site.register(User)
+class CustomUserAdmin(UserAdmin):
+    list_display = ('email', 'first_name', 'last_name', 'is_staff')
+    search_fields = ('email', 'first_name', 'last_name')
+    ordering = ('email',)
+    
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'phone')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+    )
+    
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'password1', 'password2'),
+        }),
+    )
+
+# Register models in the correct order
+admin.site.register(CustomUser, CustomUserAdmin)
+admin.site.register(HostspotUser)
 admin.site.register(Session)
 
 @admin.register(Package)

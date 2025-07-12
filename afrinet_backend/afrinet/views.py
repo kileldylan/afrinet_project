@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .mikrotik_utils import test_connection_to_device
 from .mikrotik import MikroTik
-from .models import Package, User, Payment, Session, Voucher, MikroTikDevice
+from .models import Package, HostspotUser, Payment, Session, Voucher, MikroTikDevice
 from .serializers import PaymentSerializer, PackageSerializer, PaymentInitiationSerializer, MikroTikDeviceSerializer,UserSerializer, SessionSerializer, VoucherSerializer
 from django.utils import timezone
 from datetime import timedelta
@@ -15,17 +15,53 @@ from django.conf import settings
 import base64
 from datetime import datetime
 import requests
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Avg
 from rest_framework.decorators import api_view
 logger = logging.getLogger(__name__)
-
-# views.py
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, status
 from rest_framework.response import Response
 from .models import Package
 from .serializers import PackageSerializer
+from .serializers import UserLoginSerializer, CustomUserSerializer
+from django.contrib.auth import authenticate
 
+class UserLoginAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        serializer = UserLoginSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            password = serializer.validated_data['password']
+            user = authenticate(email=email, password=password)
+            
+            if user:
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                    'user': UserSerializer(user).data
+                }, status=status.HTTP_200_OK)
+            return Response(
+                {'error': 'Invalid credentials'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserLogoutAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
 class PackageListCreateView(generics.ListCreateAPIView):
     queryset = Package.objects.all()
     serializer_class = PackageSerializer
@@ -56,7 +92,7 @@ class UserListAPIView(generics.ListCreateAPIView):  # Changed from ListAPIView t
     search_fields = ['username', 'phone']
 
     def get_queryset(self):
-        queryset = User.objects.all()
+        queryset = HostspotUser.objects.all()
         user_filter = self.request.query_params.get('filter', None)
         
         if user_filter == 'hotspot':
@@ -173,7 +209,7 @@ class InitiatePaymentView(APIView):
             package = Package.objects.get(package_id=package_id)  # Use custom package_id field
             logger.info(f"Selected package: id={package.id}, package_id={package.package_id}, price={package.price}")
             
-            user, created = User.objects.get_or_create(
+            user, created = HostspotUser.objects.get_or_create(
                 phonr=phone,
                 defaults={'package': package}
             )
@@ -280,7 +316,8 @@ def generate_voucher_code(length=8):
 class VoucherListCreate(generics.ListCreateAPIView):
     queryset = Voucher.objects.all()
     serializer_class = VoucherSerializer
-    
+    permission_classes = [IsAuthenticated]
+
     def create(self, request, *args, **kwargs):
         package_id = request.data.get('package_id')
         phone = request.data.get('phone', '')

@@ -9,7 +9,7 @@ from django.db import DatabaseError
 from datetime import timedelta
 import requests
 from dotenv import load_dotenv
-from afrinet.models import Payment, User, Session, Package
+from afrinet.models import Payment, HostspotUser, Session, Package
 from .services import MpesaService
 
 # Configure logging
@@ -62,7 +62,7 @@ def stk_push(request):
             return JsonResponse({"success": False, "message": "Amount is required"}, status=400)
 
         # Find or create user using standardized phone field
-        user, created = User.objects.get_or_create(
+        user, created = HostspotUser.objects.get_or_create(
             phone=phone,
             defaults={
                 'created_at': timezone.now(),
@@ -166,10 +166,10 @@ def callback(request):
             payment.save()
 
             # Create user with D-prefixed username
-            last_d_user = User.objects.filter(username__startswith='D').order_by('-username').first()
+            last_d_user = HostspotUser.objects.filter(username__startswith='D').order_by('-username').first()
             new_number = int(last_d_user.username[1:]) + 1 if last_d_user else 1
             
-            user, _ = User.objects.update_or_create(
+            user, _ = HostspotUser.objects.update_or_create(
                 phone=payment.phone,
                 defaults={
                     'username': f"D{new_number}",
