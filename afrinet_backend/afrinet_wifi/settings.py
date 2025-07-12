@@ -33,7 +33,7 @@ INSTALLED_APPS = [
     'whitenoise.runserver_nostatic',
 ]
 
-AUTH_USER_MODEL = 'afrinet.DefaultUser'
+AUTH_USER_MODEL = 'afrinet.CustomUser'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
