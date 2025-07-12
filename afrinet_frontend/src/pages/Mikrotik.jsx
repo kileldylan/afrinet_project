@@ -65,14 +65,13 @@ const Mikrotik = () => {
   // Handle device configuration
 const handleConfigure = (device) => {
   setCurrentDevice(device);
-    setFormData({
+  setFormData({
     name: device?.name || '',
-    host: device?.ip || '',
+    ip: device?.ip || '',  // Changed from 'host' to 'ip'
     username: device?.username || 'admin',
     password: '', // Always start with empty password for security
     port: device?.port || '8728'
   });
-  
   setConfigDialogOpen(true);
 };
 
@@ -84,42 +83,55 @@ const handleConfigure = (device) => {
       [name]: value
     }));
   };
-
   // Save device configuration
-  const handleSaveConfig = async () => {
-    try {
-      const payload = {
-        ...formData,
-        id: currentDevice?.id
-      };
+ const handleSaveConfig = async () => {
+  try {
+    // Prepare the payload with proper field names
+    const payload = {
+      name: formData.name,
+      ip: formData.ip,  // Using 'ip' instead of 'host'
+      username: formData.username,
+      port: formData.port,
+      // Only include password if it's provided (or if it's a new device)
+      ...((formData.password || !currentDevice) && { password: formData.password })
+    };
 
-      const response = await axiosInstance.post('/api/mikrotik/configure/', payload);
-      
-      setSnackbar({
-        open: true,
-        message: 'Device configuration saved successfully',
-        severity: 'success'
-      });
-      
-      // Update the device in local state
-      if (currentDevice) {
-        setDevices(devices.map(d => 
-          d.id === currentDevice.id ? { ...d, ...response.data } : d
-        ));
-      } else {
-        // Add new device
-        setDevices([...devices, response.data]);
-      }
-      
-      setConfigDialogOpen(false);
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Failed to save configuration',
-        severity: 'error'
-      });
+    // Include ID if we're updating an existing device
+    if (currentDevice?.id) {
+      payload.id = currentDevice.id;
     }
-  };
+
+    const response = await axiosInstance.post('/api/mikrotik/configure/', payload);
+    
+    setSnackbar({
+      open: true,
+      message: 'Device configuration saved successfully',
+      severity: 'success'
+    });
+    
+    // Update the device in local state
+    if (currentDevice) {
+      setDevices(devices.map(d => 
+        d.id === currentDevice.id ? { ...d, ...response.data } : d
+      ));
+    } else {
+      // Add new device
+      setDevices([...devices, response.data]);
+    }
+    
+    setConfigDialogOpen(false);
+  } catch (error) {
+    // Enhanced error handling
+    const errorMessage = error.response?.data?.detail || 
+                        (error.response?.data ? JSON.stringify(error.response.data) : 
+                        'Failed to save configuration');
+    setSnackbar({
+      open: true,
+      message: errorMessage,
+      severity: 'error'
+    });
+  }
+};
 
   // Test device connection
   const testConnection = async (deviceId) => {
@@ -265,15 +277,16 @@ const handleConfigure = (device) => {
             margin="normal"
             label="Device Name"
             name="name"
-            value={currentDevice?.name || ''}
-            disabled
+            value={formData.name}
+            onChange={handleInputChange}
+            required
           />
           <TextField
             fullWidth
             margin="normal"
-            label="IP Address/Host"
-            name="host"
-            value={formData.host}
+            label="IP Address"
+            name="ip"  // Changed from 'host' to 'ip'
+            value={formData.ip}
             onChange={handleInputChange}
             required
           />
@@ -294,7 +307,8 @@ const handleConfigure = (device) => {
             type="password"
             value={formData.password}
             onChange={handleInputChange}
-            required={!currentDevice}
+            required={!currentDevice} // Only required for new devices
+            helperText={currentDevice ? "Leave blank to keep current password" : ""}
           />
           <TextField
             fullWidth
@@ -311,7 +325,11 @@ const handleConfigure = (device) => {
             onClick={handleSaveConfig}
             variant="contained"
             color="primary"
-            disabled={!formData.host || !formData.username}
+            disabled={
+              !formData.ip || 
+              !formData.username || 
+              (!formData.password && !currentDevice) // Password required only for new devices
+            }
           >
             Save
           </Button>
