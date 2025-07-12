@@ -32,7 +32,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
   const drawerWidth = 200;
 
   const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/' },
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Users', icon: <People />, path: '/users' },
     { text: 'Active Users', icon: <Wifi />, path: '/active-users' },
     { text: 'Packages', icon: <Inventory />, path: '/packages' },

@@ -100,7 +100,7 @@ const Vouchers = () => {
     fetchData();
   }, []);
 
-  // Handle voucher creation
+    // Handle voucher creation
   const handleCreateVouchers = async () => {
     if (!selectedPackage) return;
     
@@ -108,41 +108,17 @@ const Vouchers = () => {
       const response = await axiosInstance.post('/api/vouchers/generate/', {
         package_id: selectedPackage,
         quantity: quantity
+      }, {
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken')  // Add CSRF token
+        }
       });
-      
-      // Validate and transform new vouchers
-      const newVouchers = Array.isArray(response?.data) 
-        ? response.data
-            .filter(v => v && v.id)
-            .map(v => ({
-              ...v,
-              payment: v.payment ? {
-                ...v.payment,
-                package: v.payment.package ? {
-                  ...v.payment.package,
-                  price: Number(v.payment.package.price) || 0
-                } : null
-              } : null
-            }))
-        : [];
-      
-      if (newVouchers.length > 0) {
-        setVouchers(prev => [...newVouchers, ...prev]);
-        setSnackbar({
-          open: true,
-          message: `${newVouchers.length} voucher(s) created successfully`,
-          severity: 'success'
-        });
-        setCreateDialogOpen(false);
-        setSelectedPackage('');
-        setQuantity(1);
-      } else {
-        throw new Error('No valid vouchers were created');
-      }
+      // ... rest of your code
     } catch (error) {
+      console.error('Voucher generation error:', error);
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Failed to create vouchers',
+        message: error.response?.data?.error || 'Failed to create vouchers',
         severity: 'error'
       });
     }
