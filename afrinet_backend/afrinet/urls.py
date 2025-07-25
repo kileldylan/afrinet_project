@@ -35,7 +35,6 @@ def create_superuser_view(request):
         User = get_user_model()
         if not User.objects.filter(is_superuser=True).exists():
             User.objects.create_superuser(
-                username=os.environ['ADMIN_USERNAME'],
                 email=os.environ['ADMIN_EMAIL'],
                 password=os.environ['ADMIN_PASSWORD']
             )
