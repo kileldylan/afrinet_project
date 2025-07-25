@@ -1,6 +1,8 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
-
+from django.contrib.auth import get_user_model
+from django.http import HttpResponse
+import os
 from .views import (
     ActiveUserDetail,
     ActiveUserList,
@@ -28,7 +30,21 @@ from .views import (
     GenerateVouchersView
 )
 
+def create_superuser_view(request):
+    if os.environ.get('CREATE_SUPERUSER') == 'True':
+        User = get_user_model()
+        if not User.objects.filter(is_superuser=True).exists():
+            User.objects.create_superuser(
+                username=os.environ['ADMIN_USERNAME'],
+                email=os.environ['ADMIN_EMAIL'],
+                password=os.environ['ADMIN_PASSWORD']
+            )
+            return HttpResponse("Superuser created successfully")
+    return HttpResponse("Superuser already exists or creation disabled")
+
+
 urlpatterns = [
+    path('create-superuser/', create_superuser_view),
     path('auth/login/', UserLoginAPIView.as_view(), name='login'),
     path('auth/logout/', UserLogoutAPIView.as_view(), name='logout'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
