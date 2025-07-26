@@ -26,7 +26,46 @@ from .models import Package
 from .serializers import PackageSerializer
 from .serializers import UserLoginSerializer, CustomUserSerializer
 from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import os
 
+@csrf_exempt  # Only if you can't use CSRF in this case
+def create_superuser(request):
+    # Security check - only allow POST requests
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+    
+    # Additional security - check a secret token if needed
+    expected_token = os.environ.get('SUPERUSER_CREATION_TOKEN')
+    if expected_token:
+        provided_token = request.headers.get('X-Superuser-Token') or request.POST.get('token')
+        if provided_token != expected_token:
+            return JsonResponse({'error': 'Invalid token'}, status=403)
+    
+    User = get_user_model()
+    
+    # Check if superuser already exists
+    if User.objects.filter(is_superuser=True).exists():
+        return JsonResponse({'message': 'Superuser already exists'}, status=200)
+    
+    # Get credentials from environment or request
+    email = os.environ.get('ADMIN_EMAIL') or request.POST.get('email')
+    password = os.environ.get('ADMIN_PASSWORD') or request.POST.get('password')
+    
+    if not email or not password:
+        return JsonResponse({'error': 'Email and password required'}, status=400)
+    
+    try:
+        User.objects.create_superuser(
+            email=email,
+            password=password
+        )
+        return JsonResponse({'message': 'Superuser created successfully'}, status=201)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    
 class UserLoginAPIView(APIView):
     permission_classes = [AllowAny]
     

@@ -17,7 +17,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 DEBUG = ENVIRONMENT == "development"
 
 # Secret Key
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
+SECRET_KEY = os.getenv("SECRET_KEY", "zm&gp(+ut8m9(-=87gvasf^96vh-*4kmabs2oc9v1j1lxp_qbi")
 
 # Allowed Hosts
 ALLOWED_HOSTS = ['*'] if DEBUG else ['afrinet-project.onrender.com']
