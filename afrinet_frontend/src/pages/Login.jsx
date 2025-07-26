@@ -34,19 +34,37 @@ const Login = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  e.preventDefault();
+  setLoading(true);
+  
+  try {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: credentials.email,
+        password: credentials.password
+      }),
+      credentials: 'include'  // If using session cookies
+    });
 
-    try {
-      await login(credentials.email, credentials.password);
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Login failed');
     }
-  };
+
+    const data = await response.json();
+    // Store tokens and handle auth state
+    login(data.access, data.refresh); 
+    navigate('/dashboard');
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <PageLayout title="Hotspot Management System" hideNav>
