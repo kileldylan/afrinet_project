@@ -7,15 +7,16 @@ from django.contrib.auth import authenticate
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'is_staff']
+        fields = ['id', 'email', 'name', 'phone', 'is_staff']
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         required=True,
-        style={'input_type': 'password'}
+        style={'input_type': 'password'},
+        min_length=8  # Enforce minimum length
     )
-    password2 = serializers.CharField(
+    confirmPassword = serializers.CharField(  # Changed from password2 to match frontend
         write_only=True,
         required=True,
         style={'input_type': 'password'}
@@ -23,19 +24,24 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['email', 'first_name', 'last_name', 'phone', 'password', 'password2']
+        fields = ['email', 'name', 'phone', 'password', 'confirmPassword']
         extra_kwargs = {
             'password': {'write_only': True},
-            'password2': {'write_only': True},
+            'confirmPassword': {'write_only': True},
         }
 
     def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
+        if attrs['password'] != attrs['confirmPassword']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
+        
+        # Add any additional password validation here
+        if len(attrs['password']) < 8:
+            raise serializers.ValidationError({"password": "Password must be at least 8 characters."})
+        
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password2')  # Remove password2 before creating user
+        validated_data.pop('confirmPassword')  # Remove confirmation field
         user = CustomUser.objects.create_user(**validated_data)
         return user
     

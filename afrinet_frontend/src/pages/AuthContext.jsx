@@ -79,29 +79,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, phone) => {
     try {
       const response = await axiosInstance.post('/api/auth/register/', {
         name,
         email,
-        password
+        password,
+        confirmPassword: password, // Send password confirmation
+        phone
       });
 
-      // Store tokens like in login
+      // Update to match backend response structure
+      const userData = {
+        email: response.data.user.email,
+        name: response.data.user.name,
+        phone: response.data.user.phone,
+        is_staff: response.data.user.is_staff
+      };
+
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      localStorage.setItem('user', JSON.stringify(userData));
 
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-      setUser(response.data.user);
+      setUser(userData);
       setIsAuthenticated(true);
       setLastRefresh(Date.now());
-
-      navigate('/dashboard');
+      
+      navigate('/login');
       return true;
     } catch (error) {
-      console.error('Register error:', error);
-      throw error;
+      console.error('Registration error:', error.response?.data);
+      throw new Error(error.response?.data?.message || 'Registration failed');
     }
   };
 
@@ -144,7 +153,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       lastRefresh,
       login,
-      register,  // ✅ now available
+      register,
       logout
     }}>
       {children}

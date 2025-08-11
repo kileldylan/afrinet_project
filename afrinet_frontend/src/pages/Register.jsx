@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { Lock, Email, Person, Phone } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useAuth } from './AuthContext'; // 
 import PageLayout from './PageLayout';
 
 const Register = () => {
@@ -26,6 +26,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const { register } = useAuth(); // Get register function from AuthContext
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -47,19 +48,12 @@ const Register = () => {
       return;
     }
 
-    // Prepare payload for backend (exclude confirmPassword)
-    const payload = {
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      phone: formData.phone
-    };
-
     setLoading(true);
     try {
-      const response = await axios.post('/api/register/', payload);
-      setSuccess('Registration successful! Redirecting to login...');
-      setTimeout(() => navigate('/login'), 2000);
+      // Call register from AuthContext with name, email, password, and phone
+      await register(formData.name, formData.email, formData.password, formData.phone);
+      setSuccess('Registration successful! Redirecting to dashboard...');
+      // Navigation is handled by AuthContext's register function
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed. Please try again.');
     } finally {
