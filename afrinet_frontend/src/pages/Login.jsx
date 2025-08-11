@@ -1,3 +1,4 @@
+// pages/Login.jsx
 import React, { useState } from 'react';
 import { 
   Box, 
@@ -6,14 +7,13 @@ import {
   Typography, 
   Paper, 
   Link, 
-  CircularProgress,
-  Snackbar,
-  Alert
+  CircularProgress
 } from '@mui/material';
 import { Lock, Email } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import PageLayout from './PageLayout';
+import { useNotification } from './Notifications';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
@@ -21,9 +21,9 @@ const Login = () => {
     password: ''
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { showNotification, NotificationComponent } = useNotification();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,23 +36,24 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
+    
     try {
       await login(credentials.email, credentials.password);
+      showNotification('Login successful! Redirecting...', 'success');
       navigate('/dashboard');
     } catch (err) {
-      const errorMessage = err.response?.data?.error ||
-                          err.response?.data?.detail ||
-                          err.message ||
-                          'Login failed';
-      setError(errorMessage);
+      const errorMessage = err.response?.data?.error || 
+                         err.response?.data?.detail || 
+                         err.message || 
+                         'Login failed. Please check your credentials.';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <PageLayout title="Hotspot Management System" hideNav>
+    <PageLayout title="Wifi Billing System" hideNav>
       <Box
         sx={{
           display: 'flex',
@@ -121,8 +122,7 @@ const Login = () => {
                 Forgot password?
               </Link>
             </Typography>
-
-            <Typography variant="body2" align="center" sx={{ mt: 1 }}>
+            <Typography variant="body1" align="center" sx={{ mt: 1 }}>
               Don’t have an account?{' '}
               <Link 
                 component="button"
@@ -136,15 +136,8 @@ const Login = () => {
         </Paper>
       </Box>
       
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-      >
-        <Alert severity="error" onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      </Snackbar>
+      {/* Reusable notification component */}
+      <NotificationComponent />
     </PageLayout>
   );
 };

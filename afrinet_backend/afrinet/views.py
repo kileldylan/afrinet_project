@@ -150,14 +150,17 @@ class PasswordResetRequestAPIView(APIView):
         try:
             user = CustomUser.objects.get(email=email)
             
-            # Generate reset token (you might want to use JWT here instead)
-            reset_token = get_random_string(50)
+            # Generate reset token (using JWT for better security)
+            refresh = RefreshToken.for_user(user)
+            reset_token = str(refresh.access_token)
+            
+            # Store reset token and expiry
             user.password_reset_token = reset_token
             user.password_reset_expires = timezone.now() + timedelta(hours=1)
             user.save()
             
-            # Send email (configure your email settings in settings.py)
-            reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+            # Send email with reset link
+            reset_link = f"{settings.FRONTEND_URL}/reset-password/{reset_token}/"
             send_mail(
                 'Password Reset Request',
                 f'Click this link to reset your password: {reset_link}',
@@ -166,15 +169,38 @@ class PasswordResetRequestAPIView(APIView):
                 fail_silently=False,
             )
             
+            # Always return success even if email doesn't exist (security best practice)
             return Response(
-                {"message": "Password reset link sent to your email"},
+                {"message": "If this email is registered, you'll receive a password reset link"},
                 status=status.HTTP_200_OK
             )
             
         except CustomUser.DoesNotExist:
+            # Don't reveal whether email exists or not
             return Response(
-                {"error": "User with this email does not exist"},
-                status=status.HTTP_404_NOT_FOUND
+                {"message": "If this email is registered, you'll receive a password reset link"},
+                status=status.HTTP_200_OK
+            )
+
+class PasswordResetPageAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request, token):
+        try:
+            user = CustomUser.objects.get(
+                password_reset_token=token,
+                password_reset_expires__gt=timezone.now()
+            )
+            return Response({
+                "email": user.email,
+                "token": token,
+                "valid": True
+            }, status=status.HTTP_200_OK)
+            
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 class PasswordResetConfirmAPIView(APIView):
@@ -207,6 +233,9 @@ class PasswordResetConfirmAPIView(APIView):
             user.password_reset_token = None
             user.password_reset_expires = None
             user.save()
+            
+            # Invalidate all existing tokens for security
+            RefreshToken.for_user(user)
             
             return Response(
                 {"message": "Password reset successfully"},

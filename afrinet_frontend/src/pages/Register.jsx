@@ -1,3 +1,4 @@
+// pages/Register.jsx
 import React, { useState } from 'react';
 import { 
   Box, 
@@ -6,14 +7,13 @@ import {
   Typography, 
   Paper, 
   Link, 
-  CircularProgress,
-  Snackbar,
-  Alert
+  CircularProgress
 } from '@mui/material';
 import { Lock, Email, Person, Phone } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext'; // 
+import { useAuth } from './AuthContext';
 import PageLayout from './PageLayout';
+import { useNotification } from './Notifications';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -24,10 +24,9 @@ const Register = () => {
     phone: ''
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const { register } = useAuth(); // Get register function from AuthContext
+  const { register } = useAuth();
   const navigate = useNavigate();
+  const { showNotification, NotificationComponent } = useNotification();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -39,30 +38,35 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
-
-    // Validate passwords match
+    
+    // Basic validation
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      showNotification('Passwords do not match', 'error');
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      showNotification('Password must be at least 8 characters', 'error');
       return;
     }
 
     setLoading(true);
     try {
-      // Call register from AuthContext with name, email, password, and phone
       await register(formData.name, formData.email, formData.password, formData.phone);
-      setSuccess('Registration successful! Redirecting to dashboard...');
-      // Navigation is handled by AuthContext's register function
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed. Please try again.');
+      showNotification('Registration successful! Redirecting...', 'success');
+      // Navigation is handled by AuthContext after successful registration
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.detail || 
+                         'Registration failed. Please try again.';
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <PageLayout title="Hotspot Management System" hideNav>
+    <PageLayout title="Wi-Fi Billing System" hideNav>
       <Box
         sx={{
           display: 'flex',
@@ -176,25 +180,8 @@ const Register = () => {
         </Paper>
       </Box>
       
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-      >
-        <Alert severity="error" onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      </Snackbar>
-
-      <Snackbar
-        open={!!success}
-        autoHideDuration={6000}
-        onClose={() => setSuccess(null)}
-      >
-        <Alert severity="success" onClose={() => setSuccess(null)}>
-          {success}
-        </Alert>
-      </Snackbar>
+      {/* Reusable notification component */}
+      <NotificationComponent />
     </PageLayout>
   );
 };

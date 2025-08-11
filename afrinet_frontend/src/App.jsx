@@ -14,6 +14,9 @@ import ProtectedRoute from './pages/ProtectedRoute';
 import Login from './pages/Login';
 import { AuthProvider } from './pages/AuthContext';
 import Register from './pages/Register';
+import Logout from './pages/Logout';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -24,6 +27,9 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/logout" element={<Logout />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           {/* Protected routes */}
           <Route path="/dashboard" element={

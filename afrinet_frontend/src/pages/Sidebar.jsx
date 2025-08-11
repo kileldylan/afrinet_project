@@ -22,7 +22,7 @@ import {
   MoneyOff,
   Message,
   Devices,
-  Menu,
+  Logout,
   ChevronLeft,
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
@@ -42,6 +42,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
     { text: 'SMS', icon: <Message />, path: '/sms' },
     { text: 'Mikrotik', icon: <Devices />, path: '/mikrotik' },
     { text: 'Settings', icon: <Settings />, path: '/settings' },
+    { text: 'Logout', icon: <Logout />, path: '/login' },
   ];
 
   const drawerContent = (
