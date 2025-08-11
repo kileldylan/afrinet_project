@@ -1,11 +1,12 @@
 import random
 import string
+from tokenize import TokenError
 from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .mikrotik_utils import test_connection_to_device
 from .mikrotik import MikroTik
-from .models import Package, HostspotUser, Payment, Session, Voucher, MikroTikDevice
+from .models import CustomUser, Package, HostspotUser, Payment, Session, Voucher, MikroTikDevice
 from .serializers import PaymentSerializer, PackageSerializer, PaymentInitiationSerializer, MikroTikDeviceSerializer, UserRegistrationSerializer,UserSerializer, SessionSerializer, VoucherSerializer
 from django.utils import timezone
 from datetime import timedelta
@@ -30,6 +31,8 @@ from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import os
+from django.core.mail import send_mail
+from django.utils.crypto import get_random_string
 
 @csrf_exempt  # Only if you can't use CSRF in this case
 def create_superuser(request):
@@ -112,12 +115,109 @@ class UserLogoutAPIView(APIView):
     
     def post(self, request):
         try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(status=status.HTTP_205_RESET_CONTENT)
+            refresh_token = request.data.get("refresh")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            
+            # Additional cleanup if needed
+            return Response(
+                {"detail": "Successfully logged out."}, 
+                status=status.HTTP_205_RESET_CONTENT
+            )
+        except TokenError as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Could not log out"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class PasswordResetRequestAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response(
+                {"error": "Email is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = CustomUser.objects.get(email=email)
+            
+            # Generate reset token (you might want to use JWT here instead)
+            reset_token = get_random_string(50)
+            user.password_reset_token = reset_token
+            user.password_reset_expires = timezone.now() + timedelta(hours=1)
+            user.save()
+            
+            # Send email (configure your email settings in settings.py)
+            reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+            send_mail(
+                'Password Reset Request',
+                f'Click this link to reset your password: {reset_link}',
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+            
+            return Response(
+                {"message": "Password reset link sent to your email"},
+                status=status.HTTP_200_OK
+            )
+            
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "User with this email does not exist"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+class PasswordResetConfirmAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        token = request.data.get('token')
+        password = request.data.get('password')
+        password2 = request.data.get('password2')
+        
+        if not token or not password or not password2:
+            return Response(
+                {"error": "Token, password and confirmation are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if password != password2:
+            return Response(
+                {"error": "Passwords do not match"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = CustomUser.objects.get(
+                password_reset_token=token,
+                password_reset_expires__gt=timezone.now()
+            )
+            
+            user.set_password(password)
+            user.password_reset_token = None
+            user.password_reset_expires = None
+            user.save()
+            
+            return Response(
+                {"message": "Password reset successfully"},
+                status=status.HTTP_200_OK
+            )
+            
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "Invalid or expired token"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
 class PackageListCreateView(generics.ListCreateAPIView):
     queryset = Package.objects.all()
