@@ -10,24 +10,27 @@ import {
   Snackbar,
   Alert
 } from '@mui/material';
-import { Lock, Email } from '@mui/icons-material';
+import { Lock, Email, Person, Phone } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import axios from 'axios';
 import PageLayout from './PageLayout';
 
-const Login = () => {
-  const [credentials, setCredentials] = useState({
+const Register = () => {
+  const [formData, setFormData] = useState({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: '',
+    phone: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const navigate = useNavigate();
-  const { login } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setCredentials(prev => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -35,17 +38,30 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setError(null);
+    setSuccess(null);
 
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    // Prepare payload for backend (exclude confirmPassword)
+    const payload = {
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      phone: formData.phone
+    };
+
+    setLoading(true);
     try {
-      await login(credentials.email, credentials.password);
-      navigate('/dashboard');
+      const response = await axios.post('/api/register/', payload);
+      setSuccess('Registration successful! Redirecting to login...');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      const errorMessage = err.response?.data?.error ||
-                          err.response?.data?.detail ||
-                          err.message ||
-                          'Login failed';
-      setError(errorMessage);
+      setError(err.response?.data?.detail || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -71,17 +87,30 @@ const Login = () => {
           }}
         >
           <Typography variant="h5" component="h1" gutterBottom align="center" sx={{ mb: 3 }}>
-            Admin Login
+            Create Account
           </Typography>
           
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
               margin="normal"
+              label="Full Name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              InputProps={{
+                startAdornment: <Person sx={{ color: 'action.active', mr: 1 }} />
+              }}
+            />
+
+            <TextField
+              fullWidth
+              margin="normal"
               label="Email"
               name="email"
               type="email"
-              value={credentials.email}
+              value={formData.email}
               onChange={handleChange}
               required
               InputProps={{
@@ -95,11 +124,38 @@ const Login = () => {
               label="Password"
               name="password"
               type="password"
-              value={credentials.password}
+              value={formData.password}
               onChange={handleChange}
               required
               InputProps={{
                 startAdornment: <Lock sx={{ color: 'action.active', mr: 1 }} />
+              }}
+            />
+
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Confirm Password"
+              name="confirmPassword"
+              type="password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+              InputProps={{
+                startAdornment: <Lock sx={{ color: 'action.active', mr: 1 }} />
+              }}
+            />
+
+            <TextField
+              fullWidth
+              margin="normal"
+              label="Phone Number"
+              name="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleChange}
+              InputProps={{
+                startAdornment: <Phone sx={{ color: 'action.active', mr: 1 }} />
               }}
             />
             
@@ -112,24 +168,14 @@ const Login = () => {
                 disabled={loading}
                 sx={{ width: '100%', py: 1.5 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Login'}
+                {loading ? <CircularProgress size={24} /> : 'Register'}
               </Button>
             </Box>
             
             <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-              <Link href="/forgot-password" underline="hover">
-                Forgot password?
-              </Link>
-            </Typography>
-
-            <Typography variant="body2" align="center" sx={{ mt: 1 }}>
-              Don’t have an account?{' '}
-              <Link 
-                component="button"
-                onClick={() => navigate('/register')} 
-                underline="hover"
-              >
-                Register
+              Already have an account?{' '}
+              <Link href="/login" underline="hover">
+                Login here
               </Link>
             </Typography>
           </form>
@@ -145,8 +191,18 @@ const Login = () => {
           {error}
         </Alert>
       </Snackbar>
+
+      <Snackbar
+        open={!!success}
+        autoHideDuration={6000}
+        onClose={() => setSuccess(null)}
+      >
+        <Alert severity="success" onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      </Snackbar>
     </PageLayout>
   );
 };
 
-export default Login;
+export default Register;

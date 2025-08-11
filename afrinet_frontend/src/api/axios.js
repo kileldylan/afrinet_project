@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.MODE === 'development'
-  ? 'http://127.0.0.1:8000'
-  : 'https://afrinet-project.onrender.com';
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 // Token refresh queue system
 let isRefreshing = false;
