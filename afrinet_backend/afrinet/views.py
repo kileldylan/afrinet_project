@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from .mikrotik_utils import test_connection_to_device
 from .mikrotik import MikroTik
 from .models import Package, HostspotUser, Payment, Session, Voucher, MikroTikDevice
-from .serializers import PaymentSerializer, PackageSerializer, PaymentInitiationSerializer, MikroTikDeviceSerializer,UserSerializer, SessionSerializer, VoucherSerializer
+from .serializers import PaymentSerializer, PackageSerializer, PaymentInitiationSerializer, MikroTikDeviceSerializer, UserRegistrationSerializer,UserSerializer, SessionSerializer, VoucherSerializer
 from django.utils import timezone
 from datetime import timedelta
 import logging
@@ -65,6 +65,24 @@ def create_superuser(request):
         return JsonResponse({'message': 'Superuser created successfully'}, status=201)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+class UserRegistrationAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        serializer = UserRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            
+            # Optionally send welcome email here
+            
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'user': CustomUserSerializer(user).data,
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class UserLoginAPIView(APIView):
     permission_classes = [AllowAny]

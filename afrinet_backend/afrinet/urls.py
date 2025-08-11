@@ -12,6 +12,7 @@ from .views import (
     InitiatePaymentView,
     UserLoginAPIView,
     UserLogoutAPIView,
+    UserRegistrationAPIView,
     UserSessionView,
     MpesaAuthTestView,
     MpesaSTKTestView,
@@ -46,6 +47,7 @@ def create_superuser_view(request):
 urlpatterns = [
     path('admin/create-superuser/', create_superuser),
     path('create-superuser/', create_superuser_view),
+    path('auth/register/', UserRegistrationAPIView.as_view(), name='register'),
     path('auth/login/', UserLoginAPIView.as_view(), name='login'),
     path('auth/logout/', UserLogoutAPIView.as_view(), name='logout'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
