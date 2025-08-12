@@ -124,7 +124,6 @@ if not DEBUG:
     EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
     DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
-    CSRF_TRUSTED_ORIGINS = ["https://afrinet-project.vercel.app", "https://afrinet-project.onrender.com"]
 
 # REST Framework
 REST_FRAMEWORK = {
@@ -139,6 +138,7 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
 }
 
+CSRF_TRUSTED_ORIGINS = ["https://afrinet-project.vercel.app", "https://afrinet-project.onrender.com"]
 # CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
