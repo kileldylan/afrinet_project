@@ -11,6 +11,25 @@ export const AuthProvider = ({ children }) => {
   const [lastRefresh, setLastRefresh] = useState(0);
   const navigate = useNavigate();
 
+  // Add this new helper function
+  const isPublicRoute = (path) => {
+    const publicRoutes = [
+      '/login',
+      '/register',
+      '/forgot-password',
+      /^\/reset-password\/\w+$/
+    ];
+
+    return publicRoutes.some(route => {
+      if (typeof route === 'string') {
+        return route === path;
+      } else if (route instanceof RegExp) {
+        return route.test(path);
+      }
+      return false;
+    });
+  };
+
   const isTokenValid = (token) => {
     if (!token) return false;
     try {
@@ -24,6 +43,12 @@ export const AuthProvider = ({ children }) => {
   const initializeAuth = async () => {
     const token = localStorage.getItem('access_token');
     const userData = localStorage.getItem('user');
+
+    // Add this check at the beginning
+    if (isPublicRoute(window.location.pathname)) {
+      setLoading(false);
+      return;
+    }
 
     if (token && userData) {
       if (isTokenValid(token)) {
@@ -85,11 +110,10 @@ export const AuthProvider = ({ children }) => {
         name,
         email,
         password,
-        confirmPassword: password, // Send password confirmation
+        confirmPassword: password,
         phone
       });
 
-      // Update to match backend response structure
       const userData = {
         email: response.data.user.email,
         name: response.data.user.name,

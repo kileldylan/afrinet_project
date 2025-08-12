@@ -2,8 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
+const publicRoutes = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/reset-password/:token'
+];
+
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading, lastRefresh } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
   const [isReady, setIsReady] = useState(false);
 
@@ -11,7 +19,7 @@ const ProtectedRoute = ({ children }) => {
     if (!loading) {
       setIsReady(true);
     }
-  }, [loading, lastRefresh]);
+  }, [loading]);
 
   if (!isReady) {
     return (
@@ -21,6 +29,15 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
+  // Allow access to public routes regardless of auth status
+  if (publicRoutes.some(route => {
+    const routePattern = new RegExp('^' + route.replace(/:\w+/g, '\\w+') + '$');
+    return routePattern.test(location.pathname);
+  })) {
+    return children;
+  }
+
+  // Redirect to login if not authenticated for protected routes
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

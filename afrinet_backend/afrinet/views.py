@@ -33,6 +33,9 @@ from django.views.decorators.csrf import csrf_exempt
 import os
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
+from django.core.mail import send_mail
+from django.utils.crypto import get_random_string
+
 
 @csrf_exempt  # Only if you can't use CSRF in this case
 def create_superuser(request):
@@ -148,37 +151,24 @@ class PasswordResetRequestAPIView(APIView):
             )
         
         try:
-            user = CustomUser.objects.get(email=email)
+            user = CustomUser.objects.get(email=email, is_staff=True)
+            reset_token = get_random_string(50)
             
-            # Generate reset token (using JWT for better security)
-            refresh = RefreshToken.for_user(user)
-            reset_token = str(refresh.access_token)
-            
-            # Store reset token and expiry
             user.password_reset_token = reset_token
             user.password_reset_expires = timezone.now() + timedelta(hours=1)
             user.save()
             
-            # Send email with reset link
-            reset_link = f"{settings.FRONTEND_URL}/reset-password/{reset_token}/"
-            send_mail(
-                'Password Reset Request',
-                f'Click this link to reset your password: {reset_link}',
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
+            reset_link = f"{settings.FRONTEND_URL}/reset-password"
+            send_password_reset_email(user, reset_link)
             
-            # Always return success even if email doesn't exist (security best practice)
             return Response(
-                {"message": "If this email is registered, you'll receive a password reset link"},
+                {"message": "If this email is registered as an admin, you'll receive a password reset link"},
                 status=status.HTTP_200_OK
             )
             
         except CustomUser.DoesNotExist:
-            # Don't reveal whether email exists or not
             return Response(
-                {"message": "If this email is registered, you'll receive a password reset link"},
+                {"message": "If this email is registered as an admin, you'll receive a password reset link"},
                 status=status.HTTP_200_OK
             )
 
@@ -189,7 +179,8 @@ class PasswordResetPageAPIView(APIView):
         try:
             user = CustomUser.objects.get(
                 password_reset_token=token,
-                password_reset_expires__gt=timezone.now()
+                password_reset_expires__gt=timezone.now(),
+                is_staff=True
             )
             return Response({
                 "email": user.email,
@@ -199,7 +190,7 @@ class PasswordResetPageAPIView(APIView):
             
         except CustomUser.DoesNotExist:
             return Response(
-                {"error": "Invalid or expired token"},
+                {"error": "Invalid, expired token or not an admin account"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -226,7 +217,8 @@ class PasswordResetConfirmAPIView(APIView):
         try:
             user = CustomUser.objects.get(
                 password_reset_token=token,
-                password_reset_expires__gt=timezone.now()
+                password_reset_expires__gt=timezone.now(),
+                is_staff=True
             )
             
             user.set_password(password)
@@ -234,7 +226,7 @@ class PasswordResetConfirmAPIView(APIView):
             user.password_reset_expires = None
             user.save()
             
-            # Invalidate all existing tokens for security
+            # Invalidate existing tokens
             RefreshToken.for_user(user)
             
             return Response(
@@ -247,6 +239,42 @@ class PasswordResetConfirmAPIView(APIView):
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+def send_password_reset_email(user, reset_link):
+    subject = 'Password Reset Request'
+    message = f"""
+    <html>
+    <body>
+        <h2>Password Reset</h2>
+        <p>You requested a password reset for your admin account.</p>
+        <p>Click the button below to reset your password:</p>
+        <a href="{reset_link}" 
+           style="background-color: #4CAF50; 
+                  border: none; 
+                  color: white; 
+                  padding: 15px 32px; 
+                  text-align: center; 
+                  text-decoration: none; 
+                  display: inline-block; 
+                  font-size: 16px; 
+                  margin: 4px 2px; 
+                  cursor: pointer;">
+            Reset Password
+        </a>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+    </body>
+    </html>
+    """
+    
+    send_mail(
+        subject,
+        '',  # Empty text version
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        html_message=message,
+        fail_silently=False,
+    )
         
 class PackageListCreateView(generics.ListCreateAPIView):
     queryset = Package.objects.all()
