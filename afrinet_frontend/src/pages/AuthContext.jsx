@@ -17,7 +17,8 @@ export const AuthProvider = ({ children }) => {
       '/login',
       '/register',
       '/forgot-password',
-      /^\/reset-password\/\w+$/
+      /^\/reset-password\/\w+$/,
+      '/reset-password'
     ];
 
     return publicRoutes.some(route => {
