@@ -1,23 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
-  CardContent,
   Typography,
   Grid,
   Box,
-  Checkbox,
   Divider,
-  Tooltip,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper
 } from '@mui/material';
 import {
-  PersonAdd,
+  People,
+  Sms,
+  MonetizationOn,
   FlashOn,
-  QueryStats,
-  CreditCard,
+  Receipt
 } from '@mui/icons-material';
 import { Bar, Line, Pie } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
+import { 
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  PointElement, 
+  LineElement, 
+  ArcElement, 
+  Title, 
+  Tooltip as ChartTooltip, 
+  Legend 
+} from 'chart.js';
+import axiosInstance from '../api/axios';
+import PageLayout from './PageLayout';
+
+// Register ChartJS components
+ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
@@ -25,122 +46,18 @@ import {
   LineElement,
   ArcElement,
   Title,
-  Tooltip as ChartTooltip,
-  Legend,
-} from 'chart.js';
-import PageLayout from './PageLayout';
-
-// Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, ChartTooltip, Legend);
+  ChartTooltip,
+  Legend
+);
 
 const Dashboard = () => {
-  // Stats data
-  const stats = [
-    {
-      title: 'Amount this month',
-      value: 'Ksh 1,180.00',
-      description: 'Total earned this month',
-      icon: <CreditCard color="primary" />,
-      tooltip: 'Sum of all paid transactions this month',
-    },
-    {
-      title: 'St16 balance',
-      value: 'Ksh 0.20',
-      description: 'Your arm balance',
-      icon: <QueryStats color="primary" />,
-      tooltip: 'Current balance in your account',
-    },
-    {
-      title: 'Total clients',
-      value: '282',
-      description: 'Number of clients',
-      icon: <PersonAdd color="primary" />,
-      tooltip: 'Total registered clients',
-    },
-  ];
-
-  // Chart data
-  const paymentData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'Payments (Ksh)',
-        data: [12000, 10000, 8000, 6000, 4000, 2000, 0],
-        backgroundColor: '#ff9800',
-        borderColor: '#f57c00',
-        borderWidth: 1,
-        barThickness: 20,
-      },
-    ],
-  };
-
-  const usersData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'Active Users',
-        data: [10, 15, 18, 20, 23, 18, 12],
-        fill: false,
-        borderColor: '#4caf50',
-        tension: 0.3,
-        pointRadius: 5,
-        pointBackgroundColor: '#4caf50',
-      },
-    ],
-  };
-
-  const pieData = {
-    labels: ['Paid', 'Pending'],
-    datasets: [
-      {
-        data: [70, 30],
-        backgroundColor: ['#4caf50', '#f44336'],
-        borderColor: '#fff',
-        borderWidth: 2,
-      },
-    ],
-  };
-
-  const barDataGrowth = {
-    labels: ['May', 'Jun', 'Jul'],
-    datasets: [
-      {
-        label: 'Revenue Growth (%)',
-        data: [5, 12, 8],
-        backgroundColor: '#ffca28',
-        borderColor: '#ffa000',
-        borderWidth: 1,
-        barThickness: 30,
-      },
-    ],
-  };
-
-  const pieDataRetention = {
-    labels: ['Retained', 'Churned'],
-    datasets: [
-      {
-        data: [85, 15],
-        backgroundColor: ['#81c784', '#e57373'],
-        borderColor: '#fff',
-        borderWidth: 2,
-      },
-    ],
-  };
-
-  const lineDataUptime = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'Uptime (%)',
-        data: [98.5, 99.0, 99.2, 99.1, 99.3, 99.4, 99.5],
-        fill: false,
-        borderColor: '#4caf50',
-        tension: 0.3,
-        pointRadius: 5,
-        pointBackgroundColor: '#4caf50',
-      },
-    ],
-  };
+  const [stats, setStats] = useState([]);
+  const [paymentData, setPaymentData] = useState(null);
+  const [userActivityData, setUserActivityData] = useState(null);
+  const [packageData, setPackageData] = useState(null);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const chartOptions = {
     responsive: true,
@@ -155,157 +72,237 @@ const Dashboard = () => {
     },
   };
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const [statsRes, paymentsRes, usersRes, packagesRes, activeUsersRes] = await Promise.all([
+          axiosInstance.get('/api/dashboard/stats/'),
+          axiosInstance.get('/api/dashboard/payment-chart/'),
+          axiosInstance.get('/api/dashboard/user-activity/'),
+          axiosInstance.get('/api/dashboard/package-distribution/'),
+          axiosInstance.get('/api/active-users/stats/')
+        ]);
+
+        // Update stats cards
+        setStats([
+          {
+            title: 'Monthly Revenue',
+            value: `Ksh ${statsRes.data.monthly_amount?.toLocaleString() || '0'}`,
+            description: 'Total revenue this month',
+            icon: <MonetizationOn color="primary" />,
+          },
+          {
+            title: 'SMS Balance',
+            value: `Ksh ${statsRes.data.sms_balance?.toFixed(2) || '0.00'}`,
+            description: 'Current SMS credit balance',
+            icon: <Sms color="primary" />,
+          },
+          {
+            title: 'Total Users',
+            value: statsRes.data.total_users || '0',
+            description: 'Active hotspot users',
+            icon: <People color="primary" />,
+          }
+        ]);
+
+        // Update charts data
+        setPaymentData({
+          labels: paymentsRes.data.labels || [],
+          datasets: [{
+            label: 'Daily Revenue (Ksh)',
+            data: paymentsRes.data.data || [],
+            backgroundColor: '#ff9800',
+            borderColor: '#f57c00',
+            borderWidth: 1,
+            barThickness: 20,
+          }]
+        });
+
+        setUserActivityData({
+          labels: usersRes.data.labels || [],
+          datasets: [{
+            label: 'Daily Active Users',
+            data: usersRes.data.data || [],
+            fill: false,
+            borderColor: '#4caf50',
+            tension: 0.3,
+            pointRadius: 5,
+            pointBackgroundColor: '#4caf50',
+          }]
+        });
+
+        setPackageData({
+          labels: packagesRes.data.labels || [],
+          datasets: [{
+            data: packagesRes.data.data || [],
+            backgroundColor: [
+              '#4caf50', '#2196f3', '#ff9800', '#9c27b0', 
+              '#607d8b', '#795548', '#e91e63'
+            ],
+            borderColor: '#fff',
+            borderWidth: 2,
+          }]
+        });
+
+        setActiveUsers(activeUsersRes.data || []);
+
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setError('Failed to load dashboard data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
-    <PageLayout 
-      title="AFRINET" 
-      description="Good morning, Afrinet"
-      disablePadding // Optional prop to remove default padding if needed
-    >
-      {/* Stats Cards - Single Row */}
+    <PageLayout title="AFRINET" description="Good morning, Afrinet">
+      {/* Stats Cards */}
       <Grid container spacing={2} mb={4}>
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
-            <Tooltip title={stat.tooltip} arrow>
-              <Card sx={{ 
-                p: 2, 
-                height: '100%',
-                background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-                borderRadius: 2,
-                boxShadow: 4,
-              }}>
-                <Box display="flex" alignItems="center">
-                  <Checkbox />
-                  <Box ml={1}>
-                    <Typography variant="body1" color="text.primary">{stat.title}</Typography>
-                    <Typography variant="h6" fontWeight="bold" color="text.primary">
-                      {stat.value}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {stat.description}
-                    </Typography>
-                  </Box>
+          <Grid item xs={12} sm={4} key={index}>
+            <Card sx={{ 
+              p: 2, 
+              height: '100%',
+              background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
+              borderRadius: 2,
+              boxShadow: 4,
+            }}>
+              <Box display="flex" alignItems="center">
+                <Box sx={{ mr: 2 }}>
+                  {stat.icon}
                 </Box>
-              </Card>
-            </Tooltip>
+                <Box>
+                  <Typography variant="body1" color="text.primary">{stat.title}</Typography>
+                  <Typography variant="h6" fontWeight="bold" color="text.primary">
+                    {stat.value}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {stat.description}
+                  </Typography>
+                </Box>
+              </Box>
+            </Card>
           </Grid>
         ))}
       </Grid>
 
       <Divider sx={{ my: 3 }} />
 
-      {/* Charts - Two per row */}
+      {/* Charts Section */}
       <Grid container spacing={3}>
-        {/* Payments Chart */}
+        {/* Revenue Chart */}
         <Grid item xs={12} md={6}>
           <Card sx={{ 
             p: 2, 
-            height: 300,
+            height: 400,
             background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
             borderRadius: 2,
             boxShadow: 4,
           }}>
-            <Typography variant="h6" mb={1}>Payments</Typography>
+            <Typography variant="h6" mb={1}>Daily Revenue</Typography>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Payments and expenses trend
+              Last 7 days revenue trend
             </Typography>
             <Box sx={{ height: 'calc(100% - 60px)' }}>
-              <Bar data={paymentData} options={chartOptions} />
+              {paymentData ? (
+                <Bar data={paymentData} options={chartOptions} />
+              ) : (
+                <Typography>No revenue data available</Typography>
+              )}
             </Box>
           </Card>
         </Grid>
 
-        {/* Active Users Chart */}
+        {/* User Activity Chart */}
         <Grid item xs={12} md={6}>
           <Card sx={{ 
             p: 2, 
-            height: 300,
+            height: 400,
             background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
             borderRadius: 2,
             boxShadow: 4,
           }}>
-            <Typography variant="h6" mb={1}>Active Users</Typography>
+            <Typography variant="h6" mb={1}>User Activity</Typography>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Average (10) users, Peak (23) users this week
+              Daily active users (last 7 days)
             </Typography>
             <Box sx={{ height: 'calc(100% - 60px)' }}>
-              <Line data={usersData} options={chartOptions} />
+              {userActivityData ? (
+                <Line data={userActivityData} options={chartOptions} />
+              ) : (
+                <Typography>No user activity data available</Typography>
+              )}
             </Box>
           </Card>
         </Grid>
 
-        {/* Expense Status Chart */}
+        {/* Package Distribution Chart */}
         <Grid item xs={12} md={6}>
           <Card sx={{ 
             p: 2, 
-            height: 300,
+            height: 400,
             background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
             borderRadius: 2,
             boxShadow: 4,
           }}>
-            <Typography variant="h6" mb={1}>Expense Status</Typography>
+            <Typography variant="h6" mb={1}>Package Popularity</Typography>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Paid vs pending expenses
+              Most used packages (last 30 days)
             </Typography>
             <Box sx={{ height: 'calc(100% - 60px)' }}>
-              <Pie data={pieData} options={chartOptions} />
+              {packageData ? (
+                <Pie data={packageData} options={chartOptions} />
+              ) : (
+                <Typography>No package data available</Typography>
+              )}
             </Box>
           </Card>
         </Grid>
 
-        {/* Revenue Growth Chart */}
+        {/* Most Active Users Table */}
         <Grid item xs={12} md={6}>
           <Card sx={{ 
             p: 2, 
-            height: 300,
+            height: 400,
             background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
             borderRadius: 2,
             boxShadow: 4,
           }}>
-            <Typography variant="h6" mb={1}>Revenue Growth</Typography>
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              Monthly revenue growth percentage
-            </Typography>
-            <Box sx={{ height: 'calc(100% - 60px)' }}>
-              <Bar data={barDataGrowth} options={chartOptions} />
-            </Box>
-          </Card>
-        </Grid>
-
-        {/* User Retention Chart */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ 
-            p: 2, 
-            height: 300,
-            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-            borderRadius: 2,
-            boxShadow: 4,
-          }}>
-            <Typography variant="h6" mb={1}>User Retention</Typography>
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              Retained vs churned users
-            </Typography>
-            <Box sx={{ height: 'calc(100% - 60px)' }}>
-              <Pie data={pieDataRetention} options={chartOptions} />
-            </Box>
-          </Card>
-        </Grid>
-
-        {/* Network Uptime Chart */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ 
-            p: 2, 
-            height: 300,
-            background: 'linear-gradient(135deg, rgb(64, 161, 241) 0%, rgb(193, 219, 240) 100%)',
-            borderRadius: 2,
-            boxShadow: 4,
-          }}>
-            <Typography variant="h6" mb={1}>Network Uptime</Typography>
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              Weekly network uptime percentage
-            </Typography>
-            <Box sx={{ height: 'calc(100% - 60px)' }}>
-              <Line data={lineDataUptime} options={chartOptions} />
-            </Box>
+            <Typography variant="h6" mb={2}>Most Active Users</Typography>
+            <TableContainer component={Paper} sx={{ maxHeight: 340 }}>
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Username</TableCell>
+                    <TableCell align="right">Sessions</TableCell>
+                    <TableCell>Last Active</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {activeUsers.length > 0 ? (
+                    activeUsers.map((user) => (
+                      <TableRow key={user.username}>
+                        <TableCell>{user.username || 'N/A'}</TableCell>
+                        <TableCell align="right">{user.sessions || 0}</TableCell>
+                        <TableCell>{user.last_active || 'Never'}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={3} align="center">
+                        No active user data available
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Card>
         </Grid>
       </Grid>

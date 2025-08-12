@@ -35,6 +35,7 @@ from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
+from django.db.models import Sum, Count, Q
 
 @csrf_exempt  # Only if you can't use CSRF in this case
 def create_superuser(request):
@@ -75,11 +76,20 @@ class UserRegistrationAPIView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request):
-        serializer = UserRegistrationSerializer(data=request.data)
+        # For superuser creation, you might want to add a secret key or admin check
+        # Here's a simple implementation:
+        is_superuser = request.data.get('is_superuser', False)
+        is_staff = is_superuser or request.data.get('is_staff', False)
+        
+        data = request.data.copy()
+        data.update({
+            'is_staff': is_staff,
+            'is_superuser': is_superuser
+        })
+        
+        serializer = UserRegistrationSerializer(data=data)
         if serializer.is_valid():
             user = serializer.save()
-            
-            # Optionally send welcome email here
             
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -150,7 +160,7 @@ class PasswordResetRequestAPIView(APIView):
             )
         
         try:
-            user = CustomUser.objects.get(email=email, is_staff=True)
+            user = CustomUser.objects.get(email=email)
             
             # Generate 6-digit code
             reset_code = str(random.randint(100000, 999999))
@@ -199,7 +209,6 @@ class VerifyResetCodeAPIView(APIView):
                 email=email,
                 reset_code=code,
                 reset_code_expires__gt=timezone.now(),
-                is_staff=True
             )
             
             # Generate a one-time token for actual password reset
@@ -250,7 +259,6 @@ class PasswordResetConfirmAPIView(APIView):
             user = CustomUser.objects.get(
                 password_reset_token=token,
                 password_reset_expires__gt=timezone.now(),
-                is_staff=True
             )
             
             user.set_password(password)
@@ -309,7 +317,101 @@ def send_password_reset_email(user, reset_link):
         html_message=message,
         fail_silently=False,
     )
+
+class DashboardStatsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Current month calculations
+        current_month = timezone.now().month
+        monthly_amount = Payment.objects.filter(
+            created_at__month=current_month,
+            status='completed'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # Total active users
+        total_clients = HostspotUser.objects.filter(status='active').count()
+
+        # Current active sessions
+        active_sessions = Session.objects.filter(
+            is_active=True,
+            status='active'
+        ).count()
+
+        # Recent payments count
+        recent_payments = Payment.objects.filter(
+            created_at__gte=timezone.now() - timedelta(days=7)
+        ).count()
+
+        return Response({
+            'monthly_amount': float(monthly_amount),
+            'total_clients': total_clients,
+            'active_sessions': active_sessions,
+            'recent_payments': recent_payments
+        })
+
+class PaymentChartDataAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Last 7 days payment data
+        date_range = [timezone.now() - timedelta(days=i) for i in range(6, -1, -1)]
         
+        daily_payments = []
+        for day in date_range:
+            total = Payment.objects.filter(
+                created_at__date=day.date(),
+                status='completed'
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            daily_payments.append(float(total))
+
+        return Response({
+            'labels': [day.strftime('%a') for day in date_range],
+            'data': daily_payments
+        })
+
+class UserActivityDataAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Last 7 days user activity
+        date_range = [timezone.now() - timedelta(days=i) for i in range(6, -1, -1)]
+        
+        active_users = []
+        for day in date_range:
+            count = Session.objects.filter(
+                created_at__date=day.date()
+            ).count()
+            active_users.append(count)
+
+        return Response({
+            'labels': [day.strftime('%a') for day in date_range],
+            'data': active_users
+        })
+
+class PackageDistributionDataAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Package distribution data
+        packages = Package.objects.all()
+        package_data = []
+        labels = []
+        
+        for package in packages:
+            count = Session.objects.filter(
+                package=package,
+                created_at__gte=timezone.now() - timedelta(days=30)
+            ).count()
+            if count > 0:  # Only include packages with usage
+                package_data.append(count)
+                labels.append(package.package_name)
+
+        return Response({
+            'labels': labels,
+            'data': package_data
+        })
+      
 class PackageListCreateView(generics.ListCreateAPIView):
     queryset = Package.objects.all()
     serializer_class = PackageSerializer

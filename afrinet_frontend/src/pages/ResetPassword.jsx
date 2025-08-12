@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNotification } from './Notifications';
 import PageLayout from './PageLayout';
 import axiosInstance from '../api/axios';
+import PublicLayout from './PublicLayout';
 
 const ResetPassword = () => {
   const [step, setStep] = useState(1); // 1 = email, 2 = code, 3 = new password
@@ -86,7 +87,7 @@ const ResetPassword = () => {
   };
 
   return (
-    <PageLayout title="Reset Password" hideNav>
+    <PublicLayout hideNav>
       <Box
         sx={{
           display: 'flex',
@@ -254,7 +255,7 @@ const ResetPassword = () => {
           </Typography>
         </Paper>
       </Box>
-    </PageLayout>
+    </PublicLayout>
   );
 };
 

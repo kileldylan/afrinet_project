@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import PageLayout from './PageLayout';
 import { useNotification } from './Notifications';
+import PublicLayout from './PublicLayout';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -66,7 +67,7 @@ const Register = () => {
   };
 
   return (
-    <PageLayout title="Wi-Fi Billing System" hideNav>
+    <PublicLayout hideNav>
       <Box
         sx={{
           display: 'flex',
@@ -78,10 +79,11 @@ const Register = () => {
         <Paper 
           elevation={3} 
           sx={{
-            p: 4,
+            p: 2,
             width: '100%',
-            maxWidth: 450,
-            borderRadius: 2
+            maxWidth: 400,
+            borderRadius: 2,
+            overflowY: 'auto'
           }}
         >
           <Typography variant="h5" component="h1" gutterBottom align="center" sx={{ mb: 3 }}>
@@ -182,7 +184,7 @@ const Register = () => {
       
       {/* Reusable notification component */}
       <NotificationComponent />
-    </PageLayout>
+    </PublicLayout>
   );
 };
 

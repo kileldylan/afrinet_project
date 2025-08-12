@@ -14,17 +14,25 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         write_only=True,
         required=True,
         style={'input_type': 'password'},
-        min_length=8  # Enforce minimum length
+        min_length=8
     )
-    confirmPassword = serializers.CharField(  # Changed from password2 to match frontend
+    confirmPassword = serializers.CharField(
         write_only=True,
         required=True,
         style={'input_type': 'password'}
     )
+    is_staff = serializers.BooleanField(
+        write_only=True,
+        default=False  # Default to False for normal users
+    )
+    is_superuser = serializers.BooleanField(
+        write_only=True,
+        default=False  # Default to False for normal users
+    )
 
     class Meta:
         model = CustomUser
-        fields = ['email', 'name', 'phone', 'password', 'confirmPassword']
+        fields = ['email', 'name', 'phone', 'password', 'confirmPassword', 'is_staff', 'is_superuser']
         extra_kwargs = {
             'password': {'write_only': True},
             'confirmPassword': {'write_only': True},
@@ -34,15 +42,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if attrs['password'] != attrs['confirmPassword']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         
-        # Add any additional password validation here
         if len(attrs['password']) < 8:
             raise serializers.ValidationError({"password": "Password must be at least 8 characters."})
         
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('confirmPassword')  # Remove confirmation field
-        user = CustomUser.objects.create_user(**validated_data)
+        validated_data.pop('confirmPassword')
+        is_staff = validated_data.pop('is_staff', False)
+        is_superuser = validated_data.pop('is_superuser', False)
+        
+        user = CustomUser.objects.create_user(
+            **validated_data,
+            is_staff=is_staff,
+            is_superuser=is_superuser
+        )
         return user
     
 class UserLoginSerializer(serializers.Serializer):

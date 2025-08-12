@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import PageLayout from './PageLayout';
 import { useNotification } from './Notifications';
+import PublicLayout from './PublicLayout';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
@@ -53,7 +54,7 @@ const Login = () => {
   };
 
   return (
-    <PageLayout title="Wifi Billing System" hideNav>
+    <PublicLayout title="Afrinet Wi-Fi Billing System" hideNav>
       <Box
         sx={{
           display: 'flex',
@@ -138,7 +139,7 @@ const Login = () => {
       
       {/* Reusable notification component */}
       <NotificationComponent />
-    </PageLayout>
+    </PublicLayout>
   );
 };
 
