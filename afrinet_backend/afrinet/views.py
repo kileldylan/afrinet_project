@@ -36,7 +36,6 @@ from django.utils.crypto import get_random_string
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 
-
 @csrf_exempt  # Only if you can't use CSRF in this case
 def create_superuser(request):
     # Security check - only allow POST requests
@@ -152,45 +151,78 @@ class PasswordResetRequestAPIView(APIView):
         
         try:
             user = CustomUser.objects.get(email=email, is_staff=True)
-            reset_token = get_random_string(50)
             
+            # Generate 6-digit code
+            reset_code = str(random.randint(100000, 999999))
+            
+            # Save to user
+            user.reset_code = reset_code
+            user.reset_code_expires = timezone.now() + timedelta(minutes=15)
+            user.reset_code_attempts = 0
+            user.save()
+            
+            # Send email with code
+            send_mail(
+                'Password Reset Code',
+                f'Your password reset code is: {reset_code}\n\nThis code will expire in 15 minutes.',
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+            
+            return Response(
+                {"message": "If this email is registered as an admin, you'll receive a reset code"},
+                status=status.HTTP_200_OK
+            )
+            
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"message": "If this email is registered as an admin, you'll receive a reset code"},
+                status=status.HTTP_200_OK
+            )
+
+class VerifyResetCodeAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        
+        if not email or not code:
+            return Response(
+                {"error": "Email and code are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = CustomUser.objects.get(
+                email=email,
+                reset_code=code,
+                reset_code_expires__gt=timezone.now(),
+                is_staff=True
+            )
+            
+            # Generate a one-time token for actual password reset
+            reset_token = get_random_string(50)
             user.password_reset_token = reset_token
             user.password_reset_expires = timezone.now() + timedelta(hours=1)
             user.save()
             
-            reset_link = f"{settings.FRONTEND_URL}/reset-password"
-            send_password_reset_email(user, reset_link)
-            
-            return Response(
-                {"message": "If this email is registered as an admin, you'll receive a password reset link"},
-                status=status.HTTP_200_OK
-            )
-            
-        except CustomUser.DoesNotExist:
-            return Response(
-                {"message": "If this email is registered as an admin, you'll receive a password reset link"},
-                status=status.HTTP_200_OK
-            )
-
-class PasswordResetPageAPIView(APIView):
-    permission_classes = [AllowAny]
-    
-    def get(self, request, token):
-        try:
-            user = CustomUser.objects.get(
-                password_reset_token=token,
-                password_reset_expires__gt=timezone.now(),
-                is_staff=True
-            )
             return Response({
-                "email": user.email,
-                "token": token,
-                "valid": True
+                "token": reset_token,
+                "message": "Code verified successfully"
             }, status=status.HTTP_200_OK)
             
         except CustomUser.DoesNotExist:
+            try:
+                user = CustomUser.objects.get(email=email)
+                user.reset_code_attempts += 1
+                user.save()
+            except CustomUser.DoesNotExist:
+                pass
+                
             return Response(
-                {"error": "Invalid, expired token or not an admin account"},
+                {"error": "Invalid or expired code"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -224,6 +256,8 @@ class PasswordResetConfirmAPIView(APIView):
             user.set_password(password)
             user.password_reset_token = None
             user.password_reset_expires = None
+            user.reset_code = None
+            user.reset_code_expires = None
             user.save()
             
             # Invalidate existing tokens
@@ -239,7 +273,7 @@ class PasswordResetConfirmAPIView(APIView):
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        
 def send_password_reset_email(user, reset_link):
     subject = 'Password Reset Request'
     message = f"""

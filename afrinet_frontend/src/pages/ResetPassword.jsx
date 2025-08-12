@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Button, 
@@ -11,189 +11,79 @@ import {
   IconButton
 } from '@mui/material';
 import { 
+  Email as EmailIcon,
   Lock as LockIcon,
   Visibility,
-  VisibilityOff
+  VisibilityOff,
+  VerifiedUser as VerifiedUserIcon
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useNotification } from './Notifications';
 import PageLayout from './PageLayout';
 import axiosInstance from '../api/axios';
 
 const ResetPassword = () => {
-  const { token } = useParams();
-  const navigate = useNavigate();
-  const { showNotification } = useNotification();
-  const [loading, setLoading] = useState(true);
-  const [validToken, setValidToken] = useState(false);
+  const [step, setStep] = useState(1); // 1 = email, 2 = code, 3 = new password
   const [email, setEmail] = useState('');
-  const [formData, setFormData] = useState({
-    password: '',
-    password2: '',
-    token: token
-  });
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [success, setSuccess] = useState(false);
+  const { showNotification } = useNotification();
+  const navigate = useNavigate();
 
-  // Verify token when component mounts
-  useEffect(() => {
-    const verifyToken = async () => {
-      try {
-        const response = await axiosInstance.get(`/api/reset-password/${token}/`);
-        setEmail(response.data.email);
-        setValidToken(true);
-      } catch (err) {
-        setErrors({ token: 'Invalid or expired reset link' });
-      } finally {
-        setLoading(false);
-      }
-    };
-    verifyToken();
-  }, [token]);
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleSubmit = async (e) => {
+  const handleRequestCode = async (e) => {
     e.preventDefault();
-    setErrors({});
-
-    // Validation
-    if (formData.password.length < 8) {
-      setErrors({ password: 'Password must be at least 8 characters' });
-      return;
-    }
-
-    if (formData.password !== formData.password2) {
-      setErrors({ password2: 'Passwords do not match' });
-      return;
-    }
-
+    setLoading(true);
     try {
-      setLoading(true);
-      await axiosInstance.post('/api/reset-password-confirm/', formData);
-      showNotification('Password reset successfully!', 'success');
-      setSuccess(true);
-      setTimeout(() => navigate('/login'), 3000);
+      await axiosInstance.post('/api/auth/request-reset/', { email });
+      showNotification('Reset code sent to your email', 'success');
+      setStep(2);
     } catch (err) {
-      const errorMessage = err.response?.data?.error || 
-                         'Failed to reset password. Please try again.';
-      showNotification(errorMessage, 'error');
-      setErrors({ submit: errorMessage });
+      showNotification(err.response?.data?.error || 'Failed to send code', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <PageLayout title="Verifying Reset Link" hideNav>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '80vh'
-          }}
-        >
-          <Paper 
-            elevation={3} 
-            sx={{
-              p: 4,
-              width: '100%',
-              maxWidth: 450,
-              borderRadius: 2,
-              textAlign: 'center'
-            }}
-          >
-            <Typography variant="h5" component="h1" gutterBottom>
-              Verifying Reset Link
-            </Typography>
-            <CircularProgress sx={{ mt: 3 }} />
-          </Paper>
-        </Box>
-      </PageLayout>
-    );
-  }
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await axiosInstance.post('/api/auth/verify-code/', { email, code });
+      setToken(response.data.token);
+      showNotification('Code verified. Set your new password', 'success');
+      setStep(3);
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Invalid code', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (!validToken) {
-    return (
-      <PageLayout title="Invalid Reset Link" hideNav>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '80vh'
-          }}
-        >
-          <Paper 
-            elevation={3} 
-            sx={{
-              p: 4,
-              width: '100%',
-              maxWidth: 450,
-              borderRadius: 2,
-              textAlign: 'center'
-            }}
-          >
-            <Typography variant="h5" component="h1" gutterBottom color="error">
-              Reset Link Invalid
-            </Typography>
-            <Typography variant="body1" paragraph sx={{ mb: 3 }}>
-              {errors.token || 'This password reset link is invalid or has expired.'}
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={() => navigate('/forgot-password')}
-              sx={{ width: '100%', py: 1.5 }}
-            >
-              Request New Reset Link
-            </Button>
-          </Paper>
-        </Box>
-      </PageLayout>
-    );
-  }
-
-  if (success) {
-    return (
-      <PageLayout title="Password Reset Successful" hideNav>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '80vh'
-          }}
-        >
-          <Paper 
-            elevation={3} 
-            sx={{
-              p: 4,
-              width: '100%',
-              maxWidth: 450,
-              borderRadius: 2,
-              textAlign: 'center'
-            }}
-          >
-            <Typography variant="h5" component="h1" gutterBottom color="success">
-              Password Reset Successful!
-            </Typography>
-            <Typography variant="body1" paragraph sx={{ mb: 3 }}>
-              Your password has been updated successfully. Redirecting to login page...
-            </Typography>
-            <CircularProgress size={24} />
-          </Paper>
-        </Box>
-      </PageLayout>
-    );
-  }
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (password !== password2) {
+      showNotification("Passwords don't match", 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      await axiosInstance.post('/api/auth/reset-password/', { 
+        token, 
+        password, 
+        password2 
+      });
+      showNotification('Password reset successfully! Redirecting...', 'success');
+      setTimeout(() => navigate('/login'), 2000);
+    } catch (err) {
+      showNotification(err.response?.data?.error || 'Password reset failed', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <PageLayout title="Reset Password" hideNav>
@@ -214,85 +104,154 @@ const ResetPassword = () => {
             borderRadius: 2
           }}
         >
-          <Typography variant="h5" component="h1" gutterBottom align="center" sx={{ mb: 3 }}>
-            Reset Your Password
-          </Typography>
+          {step === 1 && (
+            <>
+              <Typography variant="h5" component="h1" gutterBottom align="center" sx={{ mb: 3 }}>
+                Reset Password
+              </Typography>
+              <Typography variant="body1" paragraph align="center" sx={{ mb: 3 }}>
+                Enter your email to receive a 6-digit reset code
+              </Typography>
+              
+              <form onSubmit={handleRequestCode}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: <EmailIcon sx={{ color: 'action.active', mr: 1 }} />
+                  }}
+                />
+                
+                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    disabled={loading}
+                    sx={{ width: '100%', py: 1.5 }}
+                  >
+                    {loading ? <CircularProgress size={24} /> : 'Send Reset Code'}
+                  </Button>
+                </Box>
+              </form>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <Typography variant="h5" component="h1" gutterBottom align="center" sx={{ mb: 3 }}>
+                Enter Verification Code
+              </Typography>
+              <Typography variant="body1" paragraph align="center" sx={{ mb: 3 }}>
+                Check your email for the 6-digit code
+              </Typography>
+              
+              <form onSubmit={handleVerifyCode}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  label="Verification Code"
+                  name="code"
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  required
+                  inputProps={{ maxLength: 6 }}
+                  InputProps={{
+                    startAdornment: <VerifiedUserIcon sx={{ color: 'action.active', mr: 1 }} />
+                  }}
+                />
+                
+                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    disabled={loading}
+                    sx={{ width: '100%', py: 1.5 }}
+                  >
+                    {loading ? <CircularProgress size={24} /> : 'Verify Code'}
+                  </Button>
+                </Box>
+              </form>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <Typography variant="h5" component="h1" gutterBottom align="center" sx={{ mb: 3 }}>
+                Set New Password
+              </Typography>
+              
+              <form onSubmit={handleResetPassword}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  label="New Password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: <LockIcon sx={{ color: 'action.active', mr: 1 }} />,
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  label="Confirm New Password"
+                  name="password2"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password2}
+                  onChange={(e) => setPassword2(e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: <LockIcon sx={{ color: 'action.active', mr: 1 }} />
+                  }}
+                />
+                
+                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    disabled={loading}
+                    sx={{ width: '100%', py: 1.5 }}
+                  >
+                    {loading ? <CircularProgress size={24} /> : 'Reset Password'}
+                  </Button>
+                </Box>
+              </form>
+            </>
+          )}
           
-          <Typography variant="body1" paragraph align="center" sx={{ mb: 3 }}>
-            Enter a new password for {email}
+          <Typography variant="body2" align="center" sx={{ mt: 2 }}>
+            Remember your password?{' '}
+            <Link href="/login" underline="hover">
+              Login here
+            </Link>
           </Typography>
-          
-          <form onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              margin="normal"
-              label="New Password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              value={formData.password}
-              onChange={handleChange}
-              required
-              error={!!errors.password}
-              helperText={errors.password}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
-            
-            <TextField
-              fullWidth
-              margin="normal"
-              label="Confirm New Password"
-              name="password2"
-              type={showPassword ? 'text' : 'password'}
-              value={formData.password2}
-              onChange={handleChange}
-              required
-              error={!!errors.password2}
-              helperText={errors.password2}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockIcon color="action" />
-                  </InputAdornment>
-                )
-              }}
-            />
-            
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                size="large"
-                disabled={loading}
-                sx={{ width: '100%', py: 1.5 }}
-              >
-                {loading ? <CircularProgress size={24} /> : 'Reset Password'}
-              </Button>
-            </Box>
-            
-            <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-              Remember your password?{' '}
-              <Link href="/login" underline="hover">
-                Login here
-              </Link>
-            </Typography>
-          </form>
         </Paper>
       </Box>
     </PageLayout>

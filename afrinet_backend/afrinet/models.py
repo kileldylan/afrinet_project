@@ -36,7 +36,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     last_login = models.DateTimeField(null=True, blank=True)
     password_reset_token = models.CharField(max_length=100, blank=True, null=True)
     password_reset_expires = models.DateTimeField(blank=True, null=True)
-    
+    reset_code = models.CharField(max_length=6, blank=True, null=True)
+    reset_code_expires = models.DateTimeField(blank=True, null=True)
+    reset_code_attempts = models.PositiveIntegerField(default=0)
     objects = CustomUserManager()
 
     USERNAME_FIELD = "email"
